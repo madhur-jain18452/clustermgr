@@ -16,20 +16,34 @@ def user():
     pass
 
 @user.command()
-@click.option('--prefix', '-p', is_flag=True)
-def list(prefix):
+@click.option('--prefix', '-p', is_flag=True, help="Show the prefixes registered for the user")
+@click.option('--quota', '-q', is_flag=True, help="Show the quotas enforced for the user")
+def list(prefix, quota):
     """Lists all the Users in the system"""
     # TODO Add option for showing quota
     res = requests.get(LOCAL_ENDPOINT + USER_EP)
     columns = ['Name', 'Email']
     if prefix:
         columns.append("Prefixes")
+    if quota:
+        columns.extend(["Global cores quota", "Global memory quota", "Per Cluster Enforced Quota"])
     pt = prettytable.PrettyTable(columns)
+    if quota:
+        pt.align["Per Cluster Enforced Quota"] = 'l'
     
     for each_data in res.json():
         data = [each_data['name'], each_data['email']]
         if prefix:
             data.append(each_data['prefix'])
+        if quota:
+            cluster_quota_str = ""
+            if each_data.get('cluster_quota', {}):
+                for cname, quota in each_data['cluster_quota'].items():
+                    cluster_quota_str += f"'{cname}': {quota.get('cores', '-')} cores, {quota.get('memory', '-')} GB memory\n"
+            else:
+                cluster_quota_str = "No quota per cluster"
+            data.extend([each_data['global_resources_quota']['cores'],
+                         each_data['global_resources_quota']['memory'], cluster_quota_str])
         pt.add_row(data)
     click.echo(pt)
 
@@ -76,7 +90,7 @@ def add(name, email, prefixes, total, cluster, flush, file):
 def update(email, name, remove_prefixes, add_prefixes, total, cluster):
     """Update any information of a particular user
     """
-    if not (name and remove_prefixes and add_prefixes and total and cluster):
+    if not name and not remove_prefixes and not add_prefixes and not total and not cluster:
         click.echo("Please provide at least one category to update for the user.")
         return
     user_url = BASE_USERS_EP + "/" + email
@@ -120,6 +134,11 @@ def list_vms(email, resources, cluster):
     if cluster:
         user_url += f"?cluster={cluster}"
     res = requests.get(user_url)
+    if res.status_code == HTTPStatus.NOT_FOUND:
+        click.echo(f"User with email {email} "
+                   f"{f'or cluster with name {cluster}' if cluster else ''}"
+                    "not found in the cache. Please recheck.")
+        return
     res_json = res.json()
     columns = ["Sr. No.", "VM Name", "UUID", "Cluster", "Status"]
     if resources:

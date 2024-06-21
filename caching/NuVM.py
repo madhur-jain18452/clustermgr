@@ -134,7 +134,7 @@ class NuVM:
         else:
             return self.to_json()
 
-    def add_owner(self, owner_name, owner_email):
+    def set_owner(self, owner_name, owner_email):
         if self.owner_email == owner_email:
             return
         self.owner = owner_name

@@ -58,11 +58,12 @@ class TaskManager:
         print(f"RECEIVED {tname} for running continuously")
 
         # Periodic tasks -- run "every" X time-interval
+        seconds = job_schedule_args.get("seconds", None)
         minutes = job_schedule_args.get("minutes", None)
         hour = job_schedule_args.get("hour", None)
         day_time = job_schedule_args.get("day_time", None)
 
-        populated_fields = sum([1 for value in [minutes, hour, day_time]
+        populated_fields = sum([1 for value in [seconds, minutes, hour, day_time]
                                 if value is not None])
         if populated_fields != 1:
             raise Exception(f"Expected exactly one field to be populated"
@@ -70,15 +71,17 @@ class TaskManager:
                             f"{populated_fields}")
 
         class_fn = getattr(class_obj, method_name)
-        if minutes:
+        if seconds:
+            self.schedule.every(seconds).seconds.do(class_fn, *args, **kwargs)
+        elif minutes:
             self.schedule.every(minutes).minutes.do(class_fn, *args, **kwargs)
         elif hour:
-            self.schedule.every().hour.do(class_fn, *args, **kwargs)
+            self.schedule.every(hour).hour.do(class_fn, *args, **kwargs)
         elif day_time:
             self.schedule.every().day.at(day_time).do(class_fn, *args, **kwargs)
 
-        task_info = "{} minutes".format(minutes) if minutes else "hour"\
-            if hour else "day at time: {}".format(day_time)
+        task_info = f"{minutes} minutes" if minutes else f"{hour} hour"\
+            if hour else f"{seconds} seconds" if seconds else "day at time: {}".format(day_time)
         print(f"Added repeated task '{tname}' to run every "
               f"{task_info}")
 
@@ -92,9 +95,4 @@ class TaskManager:
         while True:
             self.schedule.run_pending()
             time.sleep(1)
-
-
-
-
-
 

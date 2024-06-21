@@ -82,7 +82,6 @@ class Cluster:
         self.vms_added_since_last_cache_build = set()
         # self._fetch_cluter_host_info()
 
-
     def is_cache_ready(self) -> bool:
         """Check if the cache is ready to be utilized
         Returns:
@@ -653,3 +652,4 @@ class Cluster:
                           f" be created. Status Code: {resp.status_code}"}
         CLUSTER_CACHE_LOGGER_.error(err['message'])
         return HTTPStatus.SERVICE_UNAVAILABLE, err
+

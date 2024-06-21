@@ -71,16 +71,16 @@ def get_offenses(resources, cluster, show_orphan_vms):
             columns = (['Sr. No.', 'VM Name', 'UUID'])
             if resources:
                 columns.extend(["Cores Allocated", "Memory Allocated (in GB)"])
-            pt = PrettyTable(columns)
-            pt.align['VM Name'] = 'l' # Left align the VM Names
+            ptx = PrettyTable(columns)
+            ptx.align['VM Name'] = 'l' # Left align the VM Names
             for vtuple in vm_list:
                 row = [sr_no, vtuple[1], vtuple[0]]
                 if resources:
                     vm_list = vm_resources.get(cname, [])
                     for each_vm in vm_list:
-                        if each_vm['name'] == vtuple[1]:
+                        if each_vm == vtuple[1]:
                             row.extend([each_vm['total_resources_used']['total_cores_used'],
                                         convert_mb_to_gb(each_vm['total_resources_used']['total_mem_used_mb'])])
-                pt.add_row(row)
+                ptx.add_row(row)
                 sr_no += 1
             print(pt)

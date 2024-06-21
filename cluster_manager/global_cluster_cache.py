@@ -16,6 +16,7 @@ from concurrent import futures
 from string import ascii_lowercase as alc
 from copy import deepcopy
 from collections import OrderedDict
+from http import HTTPStatus
 
 from caching.cluster import Cluster
 from users.user import User
@@ -25,7 +26,7 @@ from caching.server_constants import CacheState
 
 GLOBAL_MGR_LOGGER = logging.getLogger(__name__)
 GLOBAL_MGR_LOGGER.setLevel(logging.DEBUG)
-handler = logging.FileHandler(f"{__name__}.log", mode='w')
+handler = logging.FileHandler("test.log", mode='w')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 GLOBAL_MGR_LOGGER.addHandler(handler)
@@ -65,7 +66,7 @@ class GlobalClusterCache:
                     cls._g_cluster_mgr_instance = super().__new__(cls)
         return cls._g_cluster_mgr_instance
 
-    def __init__(self, cluster_list, user_list, cache_clusters=True):
+    def __init__(self, cluster_list=[], user_list=[], cache_clusters=True):
         """Parse and process raw list of clusters and users JSON
             Builds Users cache -> Builds Cluster cache -> Maps CVMs and the Users
         """
@@ -427,7 +428,8 @@ class GlobalClusterCache:
                                            f"Skipping.")
                     return True
             self.USER_PREFIX_EMAIL_MAP[pref_to_use[0]][pref_to_use] = user_email
-            user_obj.update_prefix(op=op, prefix=prefix)
+            # FIXME Get the list of UUIDs here and update accordingly
+            user_obj.update_prefix(op=op, prefix=pref_to_use)
             return True
         elif op == "remove":
             bucket = self.USER_PREFIX_EMAIL_MAP[pref_to_use[0]]
@@ -443,7 +445,16 @@ class GlobalClusterCache:
                     del bucket[pref_to_use]
                     # Since we will usually have very few prefixes
                     # -- O(n) should not matter much
-                    user_obj.update_prefix(op=op, prefix=prefix)
+                    deleted_uuid_list = user_obj.update_prefix(op=op, prefix=pref_to_use)
+                    GLOBAL_MGR_LOGGER.debug(deleted_uuid_list)
+                    for (uuid, parent_cluster_name) in deleted_uuid_list:
+                        print(parent_cluster_name)
+                        cobj = self.GLOBAL_CLUSTER_CACHE[parent_cluster_name]
+                        vm_obj = cobj.vm_cache.get(uuid, None)
+                        if not vm_obj: 
+                            vm_obj = cobj.power_off_vms.get(uuid, None)
+                        if vm_obj:
+                            vm_obj.set_owner(None, None)
                     GLOBAL_MGR_LOGGER.info(f"Prefix '{pref_to_use}' for user "
                                            f"'{user_email}' removed "
                                            f"successfully.")
@@ -464,37 +475,67 @@ class GlobalClusterCache:
 
             with cluster_obj.vm_cache_lock:
                 for uuid, vm_obj in cluster_obj.vm_cache.items():
-                    GLOBAL_MGR_LOGGER.debug(f"Cluster: {cluster_name} - "
-                                            f"UUID under process is {uuid} :"
-                                            f" {vm_obj.name}")
-                    # Get the bucket key
-                    bucket_key = vm_obj.name.lower()[0]
-                    # Get all the prefixes in the bucket
-                    bucket = self.USER_PREFIX_EMAIL_MAP[bucket_key]
-                    pref_found = False
-                    for pref, email in bucket.items():
-                        if vm_obj.name.lower().startswith(pref):
-                            pref_found = True
-                            user_obj = self.GLOBAL_USER_CACHE[email]
-                            owner_name = user_obj.name
-                            # Check if the VM has the same owner, if not, update
-                            vm_obj.add_owner(owner_name, email)
-                            # Update the resources used by the cluster if not already
-                            user_obj.update_vm_resources(vm_obj.to_json())
+                    if vm_obj.owner == None:
+                        GLOBAL_MGR_LOGGER.debug(f"Cluster: {cluster_name} - "
+                                                f"UUID under process is {uuid} :"
+                                                f" {vm_obj.name}")
+                        # Get the bucket key
+                        bucket_key = vm_obj.name.lower()[0]
+                        # Get all the prefixes in the bucket
+                        bucket = self.USER_PREFIX_EMAIL_MAP[bucket_key]
+                        pref_found = False
+                        for pref, email in bucket.items():
+                            if vm_obj.name.lower().startswith(pref):
+                                pref_found = True
+                                user_obj = self.GLOBAL_USER_CACHE[email]
+                                owner_name = user_obj.name
+                                # Check if the VM has the same owner, if not, update
+                                vm_obj.set_owner(owner_name, email)
+                                # Update the resources used by the cluster if not already
+                                user_obj.update_vm_resources(vm_obj.to_json())
 
-                            # Store a copy of this mapping within the
-                            # cache to detect deleted VMs
-                            if email not in self.current_user_vm_map:
-                                self.current_user_vm_map[email] = {}
-                            self.current_user_vm_map[email][vm_obj.uuid] = cluster_name
+                                # Store a copy of this mapping within the
+                                # cache to detect deleted VMs
+                                if email not in self.current_user_vm_map:
+                                    self.current_user_vm_map[email] = {}
+                                self.current_user_vm_map[email][vm_obj.uuid] = cluster_name
 
-                            break
-                    if not pref_found:
-                        cluster_obj.add_vm_with_no_prefix(ts, vm_obj.name, vm_obj.uuid)
-                        GLOBAL_MGR_LOGGER.warning(f"Cluster {cluster_name} - "
-                                                  f"No prefix matched for the "
-                                                  f"VM {vm_obj.name}")
-                GLOBAL_MGR_LOGGER.info(f"Mapping for cluster {cluster_name} done! Cache is now READY!")
+                                break
+                        if not pref_found:
+                            cluster_obj.add_vm_with_no_prefix(ts, vm_obj.name, vm_obj.uuid)
+                            GLOBAL_MGR_LOGGER.warning(f"Cluster {cluster_name} - "
+                                                    f"No prefix matched for the "
+                                                    f"VM {vm_obj.name}")
+                for uuid, vm_obj in cluster_obj.power_off_vms.items():
+                    if vm_obj.owner == None:
+                        # Get the bucket key
+                        bucket_key = vm_obj.name.lower()[0]
+                        # Get all the prefixes in the bucket
+                        bucket = self.USER_PREFIX_EMAIL_MAP[bucket_key]
+                        pref_found = False
+                        for pref, email in bucket.items():
+                            if vm_obj.name.lower().startswith(pref):
+                                pref_found = True
+                                user_obj = self.GLOBAL_USER_CACHE[email]
+                                owner_name = user_obj.name
+                                # Check if the VM has the same owner, if not, update
+                                vm_obj.set_owner(owner_name, email)
+                                # Update the resources used by the cluster if not already
+                                user_obj.update_vm_resources(vm_obj.to_json())
+
+                                # Store a copy of this mapping within the
+                                # cache to detect deleted VMs
+                                if email not in self.current_user_vm_map:
+                                    self.current_user_vm_map[email] = {}
+                                self.current_user_vm_map[email][vm_obj.uuid] = cluster_name
+
+                                break
+                        if not pref_found:
+                            cluster_obj.add_vm_with_no_prefix(ts, vm_obj.name, vm_obj.uuid)
+                            GLOBAL_MGR_LOGGER.warning(f"Cluster {cluster_name} - "
+                                                    f"No prefix matched for the "
+                                                    f"(PoweredOFF) VM {vm_obj.name}")
+            GLOBAL_MGR_LOGGER.info(f"Mapping for cluster {cluster_name} done! Cache is now READY!")
         else:
             GLOBAL_MGR_LOGGER.warning(f"The cluster {cluster_name} cache is "
                                       f"still building. Try again later.")
@@ -584,11 +625,11 @@ class GlobalClusterCache:
         failed_remove_pref_list = []
         done = False
         with self.GLOBAL_USER_CACHE_LOCK:
-            if user_info[UserKeys.EMAIL] in self.GLOBAL_CLUSTER_CACHE:
+            if user_info[UserKeys.EMAIL] in self.GLOBAL_USER_CACHE:
                 if not is_patch:
                     # Should have been a PATCH request, not POST
                     return
-                user_obj = self.GLOBAL_CLUSTER_CACHE[user_info[UserKeys.EMAIL]]
+                user_obj = self.GLOBAL_USER_CACHE[user_info[UserKeys.EMAIL]]
             else:
                 if is_patch:
                     # Should have been a POST request, not PATCH
@@ -598,13 +639,12 @@ class GlobalClusterCache:
 
         # Now process the prefixes
         # add_prefixes will be present for both POST and PATCH
-        new_prefix_to_add = user_info.get(UserKeys.ADD_NEW_PREF, [])
         for pref in user_info.get(UserKeys.ADD_NEW_PREF, []):
-            print(pref)
+            pref = pref.lower()
             updated = self.update_prefix(user_email=user_info[UserKeys.EMAIL],
                                          prefix=pref, op='add')
             if updated:
-                GLOBAL_MGR_LOGGER.info(f"{method} Added prefix '{pref}' for"
+                GLOBAL_MGR_LOGGER.info(f"{method} Added prefix '{pref}' for "
                                        f"the user {user_info[UserKeys.EMAIL]}")
             else:
                 failed_add_pref_list.append(pref)
@@ -612,11 +652,13 @@ class GlobalClusterCache:
                                         f"for the user {user_info[UserKeys.EMAIL]}")
         # Will be present only for the PATCH requests
         for pref in user_info.get(UserKeys.REMOVE_NEW_PREF, []):
+            pref = pref.lower()
             updated = self.update_prefix(user_email=user_info[UserKeys.EMAIL],
                                          prefix=pref, op='remove')
             if updated:
                 GLOBAL_MGR_LOGGER.info(f"{method} Removed prefix '{pref}' for"
                                        f" the user {user_info[UserKeys.EMAIL]}")
+                # FIXME Remove the owners for the VMs
             else:
                 failed_remove_pref_list.append(pref)
                 GLOBAL_MGR_LOGGER.error(f"{method} Could not remove prefix "
@@ -740,7 +782,8 @@ class GlobalClusterCache:
 
         return current_user_offenses, current_vm_without_pref
 
-    def get_vms_for_user(self, email, cluster=None) -> typing.List:
+    def get_vms_for_user(self, email, cluster=None,
+                         include_powered_off_vms=False) -> typing.Tuple[typing.List, HTTPStatus]:
         """Returns list of VMs for a particular user
             Args:
                 email (str): Email of the user
@@ -749,27 +792,35 @@ class GlobalClusterCache:
             Returns:
                 list of the VMs for the user
         """
+        if cluster:
+            if cluster not in self.GLOBAL_CLUSTER_CACHE:
+                GLOBAL_MGR_LOGGER.error(f"Cluster {cluster} not found in the cache")
+                return [], HTTPStatus.NOT_FOUND
         with self.GLOBAL_USER_CACHE_LOCK:
-            user_obj = self.GLOBAL_USER_CACHE[email]
-            uuid_info_map = user_obj.to_json()[UserKeys.VM_UTILIZED]
-            if cluster:
-                return [
-                    {
+            user_obj = self.GLOBAL_USER_CACHE.get(email, None)
+            if user_obj:
+                uuid_info_map = user_obj.to_json()[UserKeys.VM_UTILIZED]
+                if cluster:
+                    return [
+                        {
+                            "uuid": uuid,
+                            "name": res_info['name'],
+                            "cores": res_info['cores'],
+                            "memory": res_info['memory'],
+                            "parent_cluster": res_info['parent_cluster'],
+                            "power_state": res_info['power_state']
+                        }
+                        for uuid, res_info in uuid_info_map.items()
+                        if res_info['parent_cluster'] == cluster
+                    ], HTTPStatus.OK
+                return [{
                         "uuid": uuid,
                         "name": res_info['name'],
-                         "cores": res_info['cores'],
-                         "memory": res_info['memory'],
-                         "parent_cluster": res_info['parent_cluster'],
-                         "power_state": res_info['power_state']
-                    }
-                    for uuid, res_info in uuid_info_map.items()
-                    if res_info['parent_cluster'] == cluster
-                ]
-            return [{
-                    "uuid": uuid,
-                    "name": res_info['name'],
-                    "cores": res_info['cores'],
-                    "memory": res_info['memory'],
-                    "parent_cluster": res_info['parent_cluster'],
-                    "power_state": res_info['power_state']
-                } for uuid, res_info in uuid_info_map.items()]
+                        "cores": res_info['cores'],
+                        "memory": res_info['memory'],
+                        "parent_cluster": res_info['parent_cluster'],
+                        "power_state": res_info['power_state']
+                    } for uuid, res_info in uuid_info_map.items()], HTTPStatus.OK
+            else:
+                GLOBAL_MGR_LOGGER.error(f"User with email {email} not found in the cache")
+        return [], HTTPStatus.NOT_FOUND

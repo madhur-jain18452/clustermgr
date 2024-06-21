@@ -17,7 +17,7 @@ from common.constants import Resources as RES, UserKeys as USRK
 
 USER_LOGGER_ = logging.getLogger(__name__)
 USER_LOGGER_.setLevel(logging.DEBUG)
-handler = logging.FileHandler(f"{__name__}.log", mode='w')
+handler = logging.FileHandler("test.log", mode='w')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 USER_LOGGER_.addHandler(handler)
@@ -147,8 +147,6 @@ class User:
             if vm_uuid not in self.vm_resource_tracker:
                 self.vm_resource_tracker[vm_uuid] = {RES.CORES: 0, RES.MEMORY: 0, "parent_cluster": parent_cluster_name, "power_state": power_state}
                 USER_LOGGER_.debug(f"{self.email} - New VM {vm_uuid} being tracked.")
-            self.vm_resource_tracker[vm_uuid][RES.CORES] += cores_diff
-            self.vm_resource_tracker[vm_uuid][RES.MEMORY] += mem_diff
 
             USER_LOGGER_.debug(f"VM - {self.email} - " + vm_uuid +
                                f": {self.vm_resource_tracker[vm_uuid]}")
@@ -158,16 +156,20 @@ class User:
                 self.cluster_resource_tracker[parent_cluster_name] = {RES.CORES: 0, RES.MEMORY: 0}
                 USER_LOGGER_.debug(f"User: {self.email} - New cluster {parent_cluster_name} being tracked.")
 
-            # Update cores and memory for the parent cluster
-            self.cluster_resource_tracker[parent_cluster_name][RES.MEMORY] += mem_diff
-            self.cluster_resource_tracker[parent_cluster_name][RES.CORES] += cores_diff
-
             USER_LOGGER_.debug(f"Cluster - {self.email} - Cluster {parent_cluster_name} resources: "
                                f"{self.cluster_resource_tracker[parent_cluster_name]}")
 
             # Update total resources per user
-            self.total_resource_tracker[RES.MEMORY] += mem_diff
-            self.total_resource_tracker[RES.CORES] += cores_diff
+            if power_state == PowerState.ON:
+                # Update cores and memory for the User per VM
+                self.vm_resource_tracker[vm_uuid][RES.CORES] += cores_diff
+                self.vm_resource_tracker[vm_uuid][RES.MEMORY] += mem_diff
+                # Update cores and memory for the parent cluster
+                self.cluster_resource_tracker[parent_cluster_name][RES.MEMORY] += mem_diff
+                self.cluster_resource_tracker[parent_cluster_name][RES.CORES] += cores_diff
+                # Update global resource usage
+                self.total_resource_tracker[RES.MEMORY] += mem_diff
+                self.total_resource_tracker[RES.CORES] += cores_diff
 
             USER_LOGGER_.debug(f"Total - {self.email}: {self.total_resource_tracker}")
 
@@ -236,13 +238,20 @@ class User:
                         pass
             # New VM
             else:
-                self.vm_resource_tracker[uuid] = {RES.CORES: 0, RES.MEMORY: 0, "parent_cluster": parent_cluster, "name": name, "power_state": new_power_state}
+                self.vm_resource_tracker[uuid] = {
+                    RES.CORES: 0,
+                    RES.MEMORY: 0,
+                    "parent_cluster": parent_cluster,
+                    "name": name,
+                    "power_state": new_power_state
+                }
+
                 if new_power_state == PowerState.ON:
                     # The resources will be updated in _update_all_resources
                     self.powered_on_vms.add(uuid)
-                    self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
                 else:
                     self.powered_off_vms.add(uuid)
+                self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
                 _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
                             old_power_state=PowerState.UNKNOWN)
 
@@ -251,7 +260,7 @@ class User:
             USER_LOGGER_.exception(ex)
             raise ex
 
-    def update_prefix(self, prefix, op):
+    def update_prefix(self, prefix, op) -> typing.Optional[typing.List]:
         """Adds or removes a prefix for the user.
         
         Only to be called by the cluster_cache to maintain consistency.
@@ -265,12 +274,22 @@ class User:
         # Since a user has only a few prefixes, O(n) for remove should be fine
         if op == "add":
             self.prefixes.append(prefix)
-            USER_LOGGER_.info(f"Added prefix {prefix} for the user "
+            USER_LOGGER_.info(f"Adding prefix {prefix} for the user "
                               f"{self.email}.")
         elif op == "remove":
             self.prefixes.remove(prefix)
+            to_delete_uuid = []
+            delete_vm_name = []
+            for uuid, vm_info in self.vm_resource_tracker.items():
+                if vm_info['name'].lower().startswith(prefix):
+                    delete_vm_name.append(vm_info['name'])
+                    to_delete_uuid.append((uuid, vm_info['parent_cluster']))
+            for (uuid, parent_cluster) in to_delete_uuid:
+                self.process_deleted_vm(uuid)
             USER_LOGGER_.info(f"Removed prefix {prefix} for the user "
-                              f"{self.email}.")
+                              f"{self.email}. Removed the following VMs: "
+                              f"{','.join(delete_vm_name)}")
+            return to_delete_uuid
         else:
             raise Exception(f"Unknown operation {op} requested.")
 
@@ -290,8 +309,9 @@ class User:
             cluster_name = vm_info['parent_cluster']
             if cluster_name not in vm_calculated_resources_per_cluster:
                 vm_calculated_resources_per_cluster[cluster_name] = {RES.CORES: 0, RES.MEMORY: 0}
-            vm_calculated_resources_per_cluster[cluster_name][RES.CORES] += vm_info[RES.CORES]
-            vm_calculated_resources_per_cluster[cluster_name][RES.MEMORY] += vm_info[RES.MEMORY]
+            if vm_info['power_state'] == PowerState.ON:
+                vm_calculated_resources_per_cluster[cluster_name][RES.CORES] += vm_info[RES.CORES]
+                vm_calculated_resources_per_cluster[cluster_name][RES.MEMORY] += vm_info[RES.MEMORY]
 
         # Consolidate all the Clusters
         cluster_name_list = []
@@ -308,13 +328,13 @@ class User:
             if cached_resources is None:
                 raise InconsistentCacheError(f"UserCache: Cache for the cluster"
                                              f" {cluster_name} not found!")
-            if cached_resources[RES.CORES] != resources[RES.CORES]:
+            if int(cached_resources[RES.CORES]) != self.cluster_resource_tracker[cluster_name][RES.CORES]:
                 raise InconsistentCacheError(f"UserCache: Number of cores alloc for the user {self.email}"
                                              f" on the cluster {cluster_name} is "
                                              f"cached as {cached_resources[RES.CORES]} "
                                              f"which is different than the calculated "
                                              f"cores {self.cluster_resource_tracker[cluster_name][RES.CORES]}")
-            if cached_resources[RES.MEMORY] != resources[RES.MEMORY]:
+            if cached_resources[RES.MEMORY] != self.cluster_resource_tracker[cluster_name][RES.MEMORY]:
                 raise InconsistentCacheError(f"UserCache: Memory allocated for user {self.email}"
                                              f" on the cluster {cluster_name} is "
                                              f"cached as {cached_resources[RES.MEMORY]} "
