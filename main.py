@@ -3,6 +3,7 @@
 from flask import Flask
 import typing
 import argparse
+import time
 
 from http import HTTPStatus
 
@@ -11,7 +12,8 @@ from rest_api.cluster_api import cluster_blue_print
 from rest_api.user_api import user_blue_print
 
 from cluster_manager.global_cluster_cache import GlobalClusterCache
-from helper import load_config_file, verify_config
+from cluster_manager.cluster_monitor import ClusterMonitor
+from helper import load_config_file, verify_config, parse_freq_str_to_json
 from scheduler.task import TaskManager
 
 REQ_CLUSTER_PARAMS = ["name", "ip", "user", "password"]
@@ -24,26 +26,6 @@ flask_cluster_mgr_app = Flask("cluster_mgr_server")
 flask_cluster_mgr_app.register_blueprint(cache_blue_print)
 flask_cluster_mgr_app.register_blueprint(cluster_blue_print)
 flask_cluster_mgr_app.register_blueprint(user_blue_print)
-
-
-str_to_time_unit_map = {
-    's': 'seconds',
-    'm': 'minutes',
-    'h': 'hour',
-    'd': 'day'
-}
-
-def parse_frequency(frequency_str) -> dict:
-    str_to_check = frequency_str.strip()
-    if frequency_str[-1].lower() in str_to_time_unit_map:
-        freq_unit = str_to_time_unit_map[str_to_check[-1].lower()]
-        try:
-            freq_val = int(frequency_str[0:-1])
-        except ValueError as ve:
-            raise (f"Invalid time frequency string {str_to_check} received. Exception: {ve}")
-    else:
-        raise (f"Invalid time frequency string {str_to_check} received.")
-    return {freq_unit: freq_val}
 
 
 def verify_and_parse_config(cluster_file, user_file) -> typing.Tuple[dict, dict]:
@@ -113,8 +95,7 @@ if __name__ == "__main__":
     #     print("No offending items received!")
     tm = TaskManager()
     print("Adding repeated tasks to the TaskManager")
-    fre = parse_frequency(args.run_cache_refresh)
-    print(fre)
+    fre = parse_freq_str_to_json(args.run_cache_refresh)
     tm.add_repeated_task(global_cache, "rebuild_cache", fre,
                          task_name="Refreshing cluster cache")
     kwargs = {'print_summary': False}
@@ -123,6 +104,18 @@ if __name__ == "__main__":
     #                      **kwargs)
     tm.start_task_runner()
     print("Task manager started!")
+    cluster_monitor = ClusterMonitor()
+    global_cache.get_offending_items(get_vm_resources_per_cluster=True,
+                                     retain_diff=True)
+    c_time = time.time()
+    e_time = c_time + 100
+    # while time.time() < e_time:
+    time.sleep(10)
+    #     print(f"current ts: {time.time()}, waiting till {e_time}")
+    global_cache.get_offending_items(get_vm_resources_per_cluster=True,
+                                     retain_diff=True)
+
+    cluster_monitor.calculate_continued_offenses()
 
     # while True:
     #     time.sleep(1)

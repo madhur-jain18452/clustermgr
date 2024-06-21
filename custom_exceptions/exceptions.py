@@ -12,3 +12,10 @@ class InconsistentCacheError(Exception):
         super().__init__(message)
         self.message = message
 
+class SameTimestampError(Exception):
+    """Indicates that the timed difference does not contain any different timestamps. 
+    """
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+

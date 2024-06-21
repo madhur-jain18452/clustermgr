@@ -26,3 +26,42 @@ def verify_config(config, required_params, filename):
                 raise KeyError(
                     f"Key '{param}' not found in the {filename} configuration:"
                     f"{json.dumps(conf_item, indent=2)}")
+
+
+"""Maps common time units to their strings and factor to convert to
+    multiples of a second
+"""
+str_to_time_unit_map = {
+    's': ('seconds', 1),
+    'm': ('minutes', 60),
+    'h': ('hour', 60*60),
+    'd': ('day', 24*60*60)
+}
+
+
+def parse_freq_str_to_json(frequency_str) -> dict:
+    """Converts the frequency string to a JSON which stores these values
+    """
+    str_to_check = frequency_str.strip()
+    if str_to_check[-1].lower() in str_to_time_unit_map:
+        freq_unit = str_to_time_unit_map[str_to_check[-1].lower()][0]
+        try:
+            freq_val = int(frequency_str[0:-1])
+        except ValueError as ve:
+            raise f"Invalid time frequency string {str_to_check} received. Exception: {ve}"
+    else:
+        raise f"Invalid time frequency string {str_to_check} received."
+    return {freq_unit: freq_val}
+
+
+def convert_freq_str_to_seconds(frequency_str) -> float:
+    """Converts the frequency string to number of seconds
+        """
+    str_to_check = frequency_str.strip()
+    if str_to_check[-1].lower() in str_to_time_unit_map:
+        try:
+            freq_val = int(frequency_str[0:-1])
+            return freq_val * str_to_time_unit_map[str_to_check[-1].lower()][1]
+        except ValueError as ve:
+            raise f"Invalid time frequency string {str_to_check} received. Exception: {ve}"
+    raise f"Invalid time frequency string {str_to_check} received."

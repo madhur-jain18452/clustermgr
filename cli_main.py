@@ -3,6 +3,7 @@ from clustermgr_cli.cluster_cli import cluster
 from clustermgr_cli.user_cli import user
 from clustermgr_cli.cache_cli import cache
 
+
 @click.group(name='clustermgr')
 def clustermgr():
     pass

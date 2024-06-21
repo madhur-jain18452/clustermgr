@@ -10,11 +10,11 @@ global_cache = GlobalClusterCache()
 
 @user_blue_print.route("/users", methods=[HTTPMethod.GET])
 def list_users():
-    return jsonify(global_cache.list_users()), HTTPStatus.OK
+    return jsonify(global_cache.get_users()), HTTPStatus.OK
 
 
 @user_blue_print.route("/users/<email>", methods=[HTTPMethod.POST,
-                                                        HTTPMethod.PATCH])
+                                                  HTTPMethod.PATCH])
 def add_update_user(email):
     request_args = json.loads(request.get_json())
     # Parse the comma-sep prefix list and clean
@@ -53,7 +53,7 @@ def add_update_user(email):
            to_flush = request_args.get('flush', False)
            if to_flush:
             file_name = request_args.get('file', 'all_users.json')
-            users_list = global_cache.list_users()
+            users_list = global_cache.get_users()
             if file_name.endswith(".json"):
                 try:
                     with open(file_name, 'w') as fileh:
@@ -81,5 +81,5 @@ def add_update_user(email):
 @user_blue_print.route("/users/<email>/vms", methods=[HTTPMethod.GET])
 def list_user_vms(email):
     cname = request.args.get('cluster')
-    vm_list, status = global_cache.get_vms_for_user(email, cname)
+    vm_list, status = global_cache.get_all_vms_for_user(email, cname)
     return jsonify(vm_list), status

@@ -1,3 +1,5 @@
+# import json
+
 from cluster_manager.global_cluster_cache import GlobalClusterCache
 from flask import Blueprint, jsonify, request
 from http import HTTPStatus, HTTPMethod
@@ -40,3 +42,9 @@ def get_all_offenses():
         return jsonify(response), HTTPStatus.OK
     else:
         return jsonify({"message": "No offending items found. Clusters are in good shape."}), HTTPStatus.OK
+
+
+# @cache_blue_print.route("/cache/timed_offenses", method=["GET"])
+# def get_timed_offenses():
+#     arguments = json.loads(request.json)
+#     from_ts = arguments.time

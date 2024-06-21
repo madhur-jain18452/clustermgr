@@ -82,10 +82,10 @@ class Cluster:
         self.vms_added_since_last_cache_build = set()
 
         # These are the template VMs which will not be added to the regular
-        # caching logic
+        # caching logic. We will only store config instead of creating an object
         self.skipped_vms = dict()
 
-        # self._fetch_cluter_host_info()
+        # self._fetch_cluster_host_info()
 
     def is_cache_ready(self) -> bool:
         """Check if the cache is ready to be utilized
@@ -97,7 +97,7 @@ class Cluster:
             return True
         return False
 
-    def _fetch_cluter_host_info(self):
+    def _fetch_cluster_host_info(self):
         """Populates the Cluster's hosts, combined and individual host
             resources and UUIDs
         """
@@ -299,13 +299,13 @@ class Cluster:
                     CLUSTER_CACHE_LOGGER_.debug(f"Skipped caching VM {name}, uuid {uuid}")
                     # It is possible that the name might have changed
                     if uuid in self.skipped_vms:
-                        if self.skipped_vms[uuid] != name:
+                        if self.skipped_vms[uuid]['name'] != name:
                             CLUSTER_CACHE_LOGGER_.info(f"(TEMPLATE VM Name "
                                                        f"change alert) TO_SKIP"
                                                        f" VM UUID {uuid} old_name: "
                                                        f"{self.skipped_vms[uuid]}"
                                                        f" -> new_name:{name}")
-                    self.skipped_vms[uuid] = name
+                    self.skipped_vms[uuid] = vm_config
                     continue
                 # If the VM is running
                 if vm_config["power_state"] == PowerState.ON:
@@ -505,19 +505,24 @@ class Cluster:
             return sorted_vm_list[:count]
         return sorted_vm_list
 
-    def get_vm_list(self) -> typing.Tuple[typing.List, typing.List]:
+    def get_vm_list(self) -> typing.Tuple[typing.List, typing.List, typing.List]:
         """Returns list of Running and Stopped VMs
             Returns:
                 list, list: List of running VMs and stopped VMs
         """
         running_vm_list = []
         stopped_vm_list = []
+        templated_vm_list = []
         with self.vm_cache_lock:
             for _, vm_obj in self.vm_cache.items():
                 running_vm_list.append(vm_obj.to_json())
             for _, vm_obj in self.power_off_vms.items():
                 stopped_vm_list.append(vm_obj.to_json())
-        return running_vm_list, stopped_vm_list
+            for _, vm_obj in self.power_off_vms.items():
+                stopped_vm_list.append(vm_obj.to_json())
+            for _, vm_config_dict in self.skipped_vms.items():
+                templated_vm_list.append(vm_config_dict)
+        return running_vm_list, stopped_vm_list, templated_vm_list
 
     def _map_vm_name_to_obj(self, vm_name) -> typing.Optional[typing.Tuple[str, str, NuVM]]:
         """Utility function to Map the VM Name to its object

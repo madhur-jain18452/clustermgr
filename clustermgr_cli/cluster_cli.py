@@ -44,18 +44,20 @@ def list_clusters():
                                                                 "VMs as per resource consumption")
 @click.option('--powered-off', '--po', is_flag=True, help="List the VMs "
                                                           "which are powered off")
+@click.option('--include-template-vms', is_flag=True, help="List the templated VMs")
 def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
-             count, powered_off, show_owner):
+             count, powered_off, show_owner, include_template_vms):
     """List of all the VMs on a particular cluster
     """
     params = {
         'resources': resources,
         'no_owner': no_owner,
-        'count': count
+        'count': count,
+        'include_template_vms': include_template_vms
     }
     if powered_off and (resources or sorted_core or sorted_mem):
         click.echo("Please provide either --powered-off or any of resources "
-                   "or sort-by-resource. (Powered OFF VMs are not alloted any"
+                   "or sort-by-resource. (Powered OFF VMs are not allocated any"
                    " resources.)")
         return
     if sorted_mem and sorted_core:

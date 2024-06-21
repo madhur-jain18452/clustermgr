@@ -6,22 +6,23 @@ Copyright (c) 2024 Nutanix Inc. All rights reserved.
 Author:
     Sahil Naphade (sahil.naphade@nutanix.com)
 """
-import typing
-import threading
-import logging
-import time
 import json
+import logging
+import threading
+import time
+import typing
 
-from concurrent import futures
-from string import ascii_lowercase as alc
-from copy import deepcopy
 from collections import OrderedDict
+from concurrent import futures
+from copy import deepcopy
 from http import HTTPStatus
+from string import ascii_lowercase as alc
 
 from caching.cluster import Cluster
-from users.user import User
-from common.constants import UserKeys, ONE_DAY_IN_SECS
 from caching.server_constants import CacheState
+from common.constants import UserKeys
+from custom_exceptions.exceptions import SameTimestampError
+from users.user import User
 
 
 GLOBAL_MGR_LOGGER = logging.getLogger(__name__)
@@ -66,19 +67,21 @@ class GlobalClusterCache:
                     cls._g_cluster_mgr_instance = super().__new__(cls)
         return cls._g_cluster_mgr_instance
 
-    def __init__(self, cluster_list=[], user_list=[], cache_clusters=True):
+    def __init__(self, cluster_list=None, user_list=None, cache_clusters=True):
         """Parse and process raw list of clusters and users JSON
             Builds Users cache -> Builds Cluster cache -> Maps CVMs and the Users
         """
         start_time = time.time()
         # Triggers the caching process
-        for e_cl in cluster_list:
-            cluster_obj = Cluster(e_cl["name"], e_cl.get("ip"), e_cl["user"],
-                                  e_cl["password"])
-            self.cluster_obj_list.append(cluster_obj)
-        for e_usr in user_list:
-            user_obj = User(e_usr)
-            self.user_obj_list.append(user_obj)
+        if cluster_list:
+            for e_cl in cluster_list:
+                cluster_obj = Cluster(e_cl["name"], e_cl.get("ip"), e_cl["user"],
+                                      e_cl["password"])
+                self.cluster_obj_list.append(cluster_obj)
+        if user_list:
+            for e_usr in user_list:
+                user_obj = User(e_usr)
+                self.user_obj_list.append(user_obj)
         for ii in alc:
             self.USER_PREFIX_EMAIL_MAP[ii] = {}
 
@@ -107,15 +110,16 @@ class GlobalClusterCache:
         print("Clusters cache build done.")
         global_total_vms = 0
         for cname, cobj in self.GLOBAL_CLUSTER_CACHE.items():
-            running, stopped = cobj.get_vm_list()
-            total_now = len(running) + len(stopped)
+            running, stopped, templated = cobj.get_vm_list()
+            total_now = len(running) + len(stopped) + len(templated)
             global_total_vms += total_now
             print(f"\tTracking {total_now} VMs on the cluster '{cname}'")
-        print(f"Cached {len(cluster_list)} clusters, {len(user_list)} users "
-              f"and processed {global_total_vms} VMs in {time.time() - start_time:<.3f}"
-              " seconds")
+        if self.cluster_obj_list and self.user_obj_list:
+            print(f"Cached {len(self.cluster_obj_list)} clusters, {len(self.user_obj_list)} users "
+                  f"and processed {global_total_vms} VMs in {time.time() - start_time:<.3f}"
+                  " seconds")
         
-
+    # Functions related to summarizing the CacheState
     def summary(self, print_summary=False) -> typing.Optional[typing.Dict]:
         if print_summary:
             print("\n\nCLUSTERS :")
@@ -230,130 +234,6 @@ class GlobalClusterCache:
             return
         return
 
-    def get_vms_without_prefix(self, cluster_name=None) -> dict:
-        clusters_vm_without_prefix = {}
-        with self.GLOBAL_CLUSTER_CACHE_LOCK:
-            if cluster_name is not None:
-                if cluster_name in self.GLOBAL_CLUSTER_CACHE:
-                    clusters_vm_without_prefix[cluster_name] = self.GLOBAL_CLUSTER_CACHE.\
-                        get(cluster_name).get_vm_with_no_prefix()
-                else:
-                    GLOBAL_MGR_LOGGER.error(f"Cluster with name {cluster_name} does not "
-                                            f"exist in the cache!!")
-                return clusters_vm_without_prefix
-            else:
-                for cname, cluster_obj in self.GLOBAL_CLUSTER_CACHE.items():
-                    clusters_vm_without_prefix[cname] = cluster_obj.get_vm_with_no_prefix()
-        return clusters_vm_without_prefix
-
-    def get_vms_resources_sorted(self, cluster_name=None, count=-1,
-                                 sort_by_cores=False,
-                                 sort_by_mem=False
-            ) -> typing.Dict:
-        vm_using_resources_sorted_list = {}
-        with self.GLOBAL_CLUSTER_CACHE_LOCK:
-            if cluster_name is not None:
-                if cluster_name in self.GLOBAL_CLUSTER_CACHE:
-                    vm_using_resources_sorted_list[cluster_name] = {}
-                    # If a cluster is specified, we will return a list
-                    vm_using_resources_sorted_list[cluster_name]["running_vm"] = \
-                        self.GLOBAL_CLUSTER_CACHE[cluster_name].get_vm_using_resources_sorted(
-                        count=count,
-                        sort_by_cores=sort_by_cores,
-                        sort_by_mem=sort_by_mem
-                    )
-                else:
-                    GLOBAL_MGR_LOGGER.error(f"Cluster with name {cluster_name} "
-                                            f"does not exist in the cache!!")
-                return vm_using_resources_sorted_list
-            else:
-                # If a cluster is not specified, we will return a dict with
-                # each cluster_name as key
-                for cname, cluster_obj in self.GLOBAL_CLUSTER_CACHE.items():
-                    vm_using_resources_sorted_list[cname] = \
-                        cluster_obj.get_vm_using_resources_sorted(
-                            count=count,
-                            sort_by_cores=sort_by_cores,
-                            sort_by_mem=sort_by_mem)
-        return vm_using_resources_sorted_list
-
-    def get_user_offenses(self, email=None) -> dict:
-        offending_users = {}
-        with (self.GLOBAL_USER_CACHE_LOCK):
-            if email is not None:
-                if email in self.GLOBAL_USER_CACHE:
-                    user_obj = self.GLOBAL_USER_CACHE[email]
-                    is_offending, offenses = \
-                        user_obj.is_over_utilizing_quota()
-                    if not is_offending:
-                        GLOBAL_MGR_LOGGER.info(f"User {email} requested for "
-                                               "quota over-utilization, no "
-                                               "utilization detected.")
-                        return {}
-                    else:
-                        offending_users[email] = offenses
-            else:
-                for email, user_obj in self.GLOBAL_USER_CACHE.items():
-                    is_offending, offenses = user_obj.is_over_utilizing_quota()
-                    if is_offending:
-                        offending_users[email] = offenses
-        return offending_users
-
-    def get_offending_items(self, get_users_over_util=True,
-                            include_vm_without_prefix=True,
-                            get_vm_resources_per_cluster=False,
-                            email=None,
-                            cluster_name=None,
-                            count=-1, sort_by_cores=False,
-                            sort_by_mem=False, print_summary=False,
-                            retain_diff=False
-                            ) -> typing.Optional[typing.Tuple[dict, dict, dict]]:
-
-        users_over_utilizing_quota = {}
-        vm_resources_per_cluster = {}
-        vm_without_prefix = {}
-        if (not get_users_over_util and not include_vm_without_prefix and
-                not get_vm_resources_per_cluster):
-            GLOBAL_MGR_LOGGER.error("At least one of the offending items must"
-                                    " be specified.")
-            return None
-        if get_users_over_util:
-            users_over_utilizing_quota = self.get_user_offenses(email=email)
-        if get_vm_resources_per_cluster:
-            if cluster_name:
-                vm_resources_per_cluster[cluster_name] = self.get_vms_resources_sorted(
-                    cluster_name=cluster_name,
-                    count=count,
-                    sort_by_cores=sort_by_cores,
-                    sort_by_mem=sort_by_mem
-                )
-            else:
-                vm_resources_per_cluster = self.get_vms_resources_sorted(
-                    count=count,
-                    sort_by_cores=sort_by_cores,
-                    sort_by_mem=sort_by_mem
-                )
-        if include_vm_without_prefix:
-            vm_without_prefix = self.get_vms_without_prefix(
-                cluster_name=cluster_name
-            )
-
-        if retain_diff:
-            ts = int(time.time())
-            self.timed_offenses[ts] = {}
-            if get_users_over_util:
-                self.timed_offenses[ts]['users_over_util'] = get_users_over_util
-            if get_vm_resources_per_cluster:
-                self.timed_offenses[ts]['vm_using_per_cluster'] = vm_resources_per_cluster
-            if include_vm_without_prefix:
-                self.timed_offenses[ts]['vm_without_prefix'] = vm_without_prefix
-
-        if print_summary:
-            json.dumps(users_over_utilizing_quota, indent=4)
-            json.dumps(vm_resources_per_cluster, indent=4)
-            json.dumps(vm_without_prefix, indent=4)
-        return users_over_utilizing_quota, vm_resources_per_cluster, vm_without_prefix
-
     # Functions related to Users, user cache rebuilds
     def _build_user_cache(self):
         # Since we already have the __new__ method protecting the data
@@ -464,6 +344,7 @@ class GlobalClusterCache:
         else:
             raise Exception(f"Operation {op} is invalid for update_prefix")
 
+    # Cohesive functions
     def map_vm_and_users_track_resources(self, cluster_name):
         """This function maps users and VMs.
             Also updates the resources used by each VM and consequently the users
@@ -567,13 +448,13 @@ class GlobalClusterCache:
         self.old_user_vm_map = deepcopy(self.current_user_vm_map)
 
     # Functions relating to serving the REST API
-    def list_clusters(self) -> typing.List:
+    def get_clusters(self) -> typing.List:
         cluster_name_list = list()
         for cname in self.GLOBAL_CLUSTER_CACHE.keys():
             cluster_name_list.append(cname)
         return cluster_name_list
 
-    def list_users(self, skip_util=True) -> typing.List:
+    def get_users(self, skip_util=True) -> typing.List:
         user_list = list()
         for _, user_obj in self.GLOBAL_USER_CACHE.items():
             user_info = user_obj.to_json()
@@ -586,8 +467,9 @@ class GlobalClusterCache:
                 user_list.append(user_info)
         return user_list
 
-    def cluster_info(self, cluster_name, arguments) -> typing.Dict:
+    def get_cluster_info(self, cluster_name, arguments) -> typing.Dict:
         cluster_info_dict = dict()
+        include_template_vms = eval(arguments.get("include_template_vms", False))
         if eval(arguments.get("resources", 'False')):
             return self.get_vms_resources_sorted(
                         cluster_name=cluster_name,
@@ -604,6 +486,8 @@ class GlobalClusterCache:
             if vm_list:
                 cluster_info_dict['running_vm'] = vm_list[0]
                 cluster_info_dict['stopped_vm'] = vm_list[1]
+                if include_template_vms:
+                    cluster_info_dict['template_vm'] = vm_list[2]
         return cluster_info_dict
 
     def add_update_user(self, user_info,
@@ -675,7 +559,7 @@ class GlobalClusterCache:
         #     user_obj.update_prefix(prefix=pref, op='remove')
         return failed_add_pref_list, failed_remove_pref_list, done
 
-    def process_cluster_vm_power_change(self, cluster_name, vm_info):
+    def perform_cluster_vm_power_change(self, cluster_name, vm_info):
         """Common function to change the power change of a VM for a cluster.
             Currently only powers off a VM.
             Args:
@@ -719,72 +603,9 @@ class GlobalClusterCache:
                                                 " not found in the CACHE!!")
         return status, msg
 
-    def get_continued_offense(self, timediff=ONE_DAY_IN_SECS, from_ts=None):
-        """Retuns the consolidated list of the quota and VM offenses, which
-            has not changed in last 'timediff' seconds. Default: 1 Day
-            Args:
-                timediff (int): Number of seconds to check for the difference in
-                from_ts (int | None): Latest timestamp to check for the diff
-            Returns:
-                tuple(dict, dict)
-        """
-        if not from_ts:
-            from_ts = int(time.time())
-
-        # Get the closest time stamp to from_ts in the cache
-        closest_ts_current = min(self.timed_offenses.keys(), key=lambda ts: abs(from_ts - ts))
-
-        # Get the closest time stamp to (from_ts - timediff)
-        to_ts = from_ts - timediff
-        closest_ts_old = min(self.timed_offenses.keys(), key=lambda ts: abs(to_ts - ts))
-
-        if closest_ts_current == closest_ts_old:
-            GLOBAL_MGR_LOGGER.error("The latest time and the earliest timestamp before the difference is same")
-            return {}
-        old_offenses = self.timed_offenses[to_ts]
-        new_offenses = self.timed_offenses[from_ts]
-    
-        # Get the users who are still over-utilizing their resources
-        old_over_util_users = old_offenses.get('users_over_util', {})
-        new_over_util_users = new_offenses.get('users_over_util', {})
-        users_still_over_util = set(old_over_util_users.keys()).intersection(set(new_over_util_users))
-        # TODO Can return the list of the users who are not over-utilizing any-more as well.
-        current_user_offenses = {}
-        for email in users_still_over_util:
-            current_user_offenses[email] = {}
-            current_user_offenses[email]['resources'] = new_over_util_users[email]
-            # Get the list of the VMs owned by this user
-            current_user_offenses[email]['vms'] = self.GLOBAL_USER_CACHE[email].to_json()[UserKeys.VM_UTILIZED]
-
-        # Get the list of VMs which still do not conform to the prefix requirement
-        current_vm_without_pref = {}
-        old_vm_without_pref = old_offenses.get('vm_without_prefix', {})
-        new_vm_without_pref = new_offenses.get('vm_without_prefix', {})
-        common_cluster_names = set(old_vm_without_pref.keys()).intersection(set(new_vm_without_pref.keys()))
-
-        for cname in common_cluster_names:
-            common_uuids = {}
-            new_vms = new_vm_without_pref[cname]
-            old_vms = old_vm_without_pref[cname]
-
-            # Convert to sets to get the common UUIDs
-            new_vm_uuid_set = {uuid for uuid, _ in new_vms}
-            old_vm_uuid_set = {uuid for uuid, _ in old_vms}
-            # Get common UUIDs
-            common_uuid_s = old_vm_uuid_set.intersection(new_vm_uuid_set)
-            # Get the old and new names for the VMs that are still offending
-            for uuid in common_uuid_s:
-                old_vm_name = next(name for uid, name in old_vms if uid == uuid)
-                new_vm_name = next(name for uid, name in new_vms if uid == uuid)
-                common_uuids[uuid] = {'old_vm_name': old_vm_name, 'new_vm_name': new_vm_name}
-
-            current_vm_without_pref[cname] = common_uuids
-
-        return current_user_offenses, current_vm_without_pref
-
-    def get_vms_for_user(self, email, cluster=None,
+    def get_all_vms_for_user(self, email, cluster=None,
                          include_powered_off_vms=False) -> typing.Tuple[typing.List, HTTPStatus]:
-        """Returns list of VMs for a particular user
+        """Returns list of VMs for one particular user
             Args:
                 email (str): Email of the user
                 cluster (str): Filter the list of VMs as per the cluster on \
@@ -824,3 +645,161 @@ class GlobalClusterCache:
             else:
                 GLOBAL_MGR_LOGGER.error(f"User with email {email} not found in the cache")
         return [], HTTPStatus.NOT_FOUND
+
+    def get_vms_without_prefix(self, cluster_name=None) -> dict:
+        clusters_vm_without_prefix = {}
+        with self.GLOBAL_CLUSTER_CACHE_LOCK:
+            if cluster_name is not None:
+                if cluster_name in self.GLOBAL_CLUSTER_CACHE:
+                    clusters_vm_without_prefix[cluster_name] = self.GLOBAL_CLUSTER_CACHE.\
+                        get(cluster_name).get_vm_with_no_prefix()
+                else:
+                    GLOBAL_MGR_LOGGER.error(f"Cluster with name {cluster_name} does not "
+                                            f"exist in the cache!!")
+                return clusters_vm_without_prefix
+            else:
+                for cname, cluster_obj in self.GLOBAL_CLUSTER_CACHE.items():
+                    clusters_vm_without_prefix[cname] = cluster_obj.get_vm_with_no_prefix()
+        return clusters_vm_without_prefix
+
+    def get_vms_resources_sorted(self, cluster_name=None, count=-1,
+                                 sort_by_cores=False,
+                                 sort_by_mem=False
+            ) -> typing.Dict:
+        vm_using_resources_sorted_list = {}
+        with self.GLOBAL_CLUSTER_CACHE_LOCK:
+            if cluster_name is not None:
+                if cluster_name in self.GLOBAL_CLUSTER_CACHE:
+                    vm_using_resources_sorted_list[cluster_name] = {}
+                    vm_using_resources_sorted_list[cluster_name]["running_vm"] = \
+                        self.GLOBAL_CLUSTER_CACHE[cluster_name].get_vm_using_resources_sorted(
+                        count=count,
+                        sort_by_cores=sort_by_cores,
+                        sort_by_mem=sort_by_mem
+                    )
+                else:
+                    GLOBAL_MGR_LOGGER.error(f"Cluster with name {cluster_name} "
+                                            f"does not exist in the cache!!")
+                return vm_using_resources_sorted_list
+            else:
+                # If a cluster is not specified, we will return a dict with
+                # each cluster_name as key
+                for cname, cluster_obj in self.GLOBAL_CLUSTER_CACHE.items():
+                    vm_using_resources_sorted_list[cname] = \
+                        cluster_obj.get_vm_using_resources_sorted(
+                            count=count,
+                            sort_by_cores=sort_by_cores,
+                            sort_by_mem=sort_by_mem)
+        return vm_using_resources_sorted_list
+
+    def get_user_offenses(self, email=None) -> dict:
+        offending_users = {}
+        with (self.GLOBAL_USER_CACHE_LOCK):
+            if email is not None:
+                if email in self.GLOBAL_USER_CACHE:
+                    user_obj = self.GLOBAL_USER_CACHE[email]
+                    is_offending, offenses = \
+                        user_obj.is_over_utilizing_quota()
+                    if not is_offending:
+                        GLOBAL_MGR_LOGGER.info(f"User {email} requested for "
+                                               "quota over-utilization, no "
+                                               "utilization detected.")
+                        return {}
+                    else:
+                        offending_users[email] = offenses
+            else:
+                for email, user_obj in self.GLOBAL_USER_CACHE.items():
+                    is_offending, offenses = user_obj.is_over_utilizing_quota()
+                    if is_offending:
+                        offending_users[email] = offenses
+        return offending_users
+
+    def get_offending_items(self, get_users_over_util=True,
+                            include_vm_without_prefix=True,
+                            get_vm_resources_per_cluster=False,
+                            email=None,
+                            cluster_name=None,
+                            count=-1, sort_by_cores=False,
+                            sort_by_mem=False, print_summary=False,
+                            retain_diff=False
+                            ) -> typing.Optional[typing.Tuple[dict, dict, dict]]:
+
+        users_over_utilizing_quota = {}
+        vm_resources_per_cluster = {}
+        vm_without_prefix = {}
+        if (not get_users_over_util and not include_vm_without_prefix and
+                not get_vm_resources_per_cluster):
+            GLOBAL_MGR_LOGGER.error("At least one of the offending items must"
+                                    " be specified.")
+            return None
+        if get_users_over_util:
+            users_over_utilizing_quota = self.get_user_offenses(email=email)
+        if get_vm_resources_per_cluster:
+            if cluster_name:
+                vm_resources_per_cluster[cluster_name] = self.get_vms_resources_sorted(
+                    cluster_name=cluster_name,
+                    count=count,
+                    sort_by_cores=sort_by_cores,
+                    sort_by_mem=sort_by_mem
+                )
+            else:
+                vm_resources_per_cluster = self.get_vms_resources_sorted(
+                    count=count,
+                    sort_by_cores=sort_by_cores,
+                    sort_by_mem=sort_by_mem
+                )
+        if include_vm_without_prefix:
+            vm_without_prefix = self.get_vms_without_prefix(
+                cluster_name=cluster_name
+            )
+
+        if retain_diff:
+            ts = int(time.time())
+            print(f"Adding entry in the timed_offenses: at ts: {ts}")
+            self.timed_offenses[ts] = {}
+            if get_users_over_util:
+                self.timed_offenses[ts]['users_over_util'] = users_over_utilizing_quota
+            if get_vm_resources_per_cluster:
+                self.timed_offenses[ts]['vm_using_per_cluster'] = vm_resources_per_cluster
+            if include_vm_without_prefix:
+                self.timed_offenses[ts]['vm_without_prefix'] = vm_without_prefix
+            print(f"The entry in the timed_offenses: at ts is {json.dumps(self.timed_offenses[ts], indent=4)}")
+
+        if print_summary:
+            json.dumps(users_over_utilizing_quota, indent=4)
+            json.dumps(vm_resources_per_cluster, indent=4)
+            json.dumps(vm_without_prefix, indent=4)
+        return users_over_utilizing_quota, vm_resources_per_cluster, vm_without_prefix
+
+    # Functions helping the Cluster Monitor
+    def get_timed_offenses(self, start_ts, end_ts) -> typing.Tuple[int, typing.Dict, int, typing.Dict]:
+        """Retuns the consolidated list of the quota and VM offenses, which
+            has not changed from start_ts and end_ts.
+            If exact timestamps do not exist, returns the data at closest \
+                matching timestamps
+            Args:
+                start_ts (int | None): Older timestamp to check for the diff
+                end_ts (int): Newer timestamp to check
+            Returns:
+                tuple(int, dict, int, dict): actual_old_ts, old_offenses, actual_new_ts, new_offenses
+            Raises:
+                SameTimestampError
+        """
+        if not start_ts:
+            start_ts = int(time.time())
+
+        # Get the closest time stamp to start_ts in the cache
+        closest_start_ts = min(self.timed_offenses.keys(), key=lambda ts: abs(start_ts - ts))
+
+        # Get the closest time-stamped data to end_ts
+        closest_end_ts = min(self.timed_offenses.keys(), key=lambda ts: abs(end_ts - ts))
+
+        if closest_start_ts == closest_end_ts:
+            err_str = (f"The latest time: {closest_end_ts} and the earliest "
+                       f"time: {closest_start_ts} are same!")
+            GLOBAL_MGR_LOGGER.error(err_str)
+            raise SameTimestampError(err_str)
+        old_offenses = self.timed_offenses[closest_start_ts]
+        new_offenses = self.timed_offenses[closest_end_ts]
+
+        return closest_start_ts, old_offenses, closest_end_ts, new_offenses
