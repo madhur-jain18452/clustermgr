@@ -26,7 +26,7 @@ from caching.server_constants import CacheState
 
 GLOBAL_MGR_LOGGER = logging.getLogger(__name__)
 GLOBAL_MGR_LOGGER.setLevel(logging.DEBUG)
-handler = logging.FileHandler("test.log", mode='w')
+handler = logging.FileHandler("global_cache.log", mode='w')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 GLOBAL_MGR_LOGGER.addHandler(handler)

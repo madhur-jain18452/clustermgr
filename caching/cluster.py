@@ -21,7 +21,7 @@ from http import HTTPStatus
 from caching.NuVM import NuVM
 from caching.server_constants import PRISM_PORT, PRISM_REST_FINAL_EP, \
     basic_auth_header, HTTPS, VM_ENDPOINT, generate_query_string, \
-    CacheState, PowerState, HOSTS_EP, CLUSTER_EP
+    CacheState, PowerState, HOSTS_EP, CLUSTER_EP, check_vm_name_to_skip
 from tools.helper import convert_mb_to_gb, convert_bytes_to_gb
 from custom_exceptions.exceptions import InconsistentCacheError
 from common.constants import NuVMKeys, ClusterKeys, TaskStatus
@@ -31,7 +31,7 @@ urllib3.disable_warnings()
 # Setting up the logging
 CLUSTER_CACHE_LOGGER_ = logging.getLogger(__name__)
 CLUSTER_CACHE_LOGGER_.setLevel(logging.DEBUG)
-handler = logging.FileHandler(f"{__name__}.log", mode='w')
+handler = logging.FileHandler("cluster.log", mode='w')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 CLUSTER_CACHE_LOGGER_.addHandler(handler)
@@ -80,6 +80,11 @@ class Cluster:
         self.vm_cache_lock = Lock()
         self.vm_count = 0
         self.vms_added_since_last_cache_build = set()
+
+        # These are the template VMs which will not be added to the regular
+        # caching logic
+        self.skipped_vms = dict()
+
         # self._fetch_cluter_host_info()
 
     def is_cache_ready(self) -> bool:
@@ -289,6 +294,19 @@ class Cluster:
         with self.vm_cache_lock:
             for vm_config in all_vm_config:
                 uuid = vm_config["uuid"]
+                name = vm_config["name"]
+                if check_vm_name_to_skip(name):
+                    CLUSTER_CACHE_LOGGER_.debug(f"Skipped caching VM {name}, uuid {uuid}")
+                    # It is possible that the name might have changed
+                    if uuid in self.skipped_vms:
+                        if self.skipped_vms[uuid] != name:
+                            CLUSTER_CACHE_LOGGER_.info(f"(TEMPLATE VM Name "
+                                                       f"change alert) TO_SKIP"
+                                                       f" VM UUID {uuid} old_name: "
+                                                       f"{self.skipped_vms[uuid]}"
+                                                       f" -> new_name:{name}")
+                    self.skipped_vms[uuid] = name
+                    continue
                 # If the VM is running
                 if vm_config["power_state"] == PowerState.ON:
                     # And was previously shut down, update the resources used

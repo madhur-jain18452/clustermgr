@@ -13,7 +13,7 @@ Author:
     Sahil Naphade (sahil.naphade@nutanix.com)
 """
 
-import typing
+import re
 
 from base64 import b64encode
 from urllib import parse
@@ -116,3 +116,12 @@ def generate_query_string(options):
     query_string = parse.urlencode(options)
     return f"?{query_string}"
 
+
+def check_vm_name_to_skip(name):
+    # Define the regex pattern
+    pattern = re.compile(r'era[._-]*agent|TEMPLATE', re.IGNORECASE)
+    
+    # Check if the name matches the pattern
+    if pattern.match(name):
+        return True
+    return False

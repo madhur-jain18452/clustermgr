@@ -17,7 +17,7 @@ from common.constants import Resources as RES, UserKeys as USRK
 
 USER_LOGGER_ = logging.getLogger(__name__)
 USER_LOGGER_.setLevel(logging.DEBUG)
-handler = logging.FileHandler("test.log", mode='w')
+handler = logging.FileHandler("user.log", mode='w')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 USER_LOGGER_.addHandler(handler)
