@@ -31,3 +31,8 @@ def change_vm_power_state(cluster_name):
     status, msg = global_cache.perform_cluster_vm_power_change(cluster_name, arguments)
     return jsonify({"resp": msg}), status
 
+@cluster_blue_print.route("/clusters/<cluster_name>/vms/nics/", methods=[HTTPMethod.DELETE])
+def remove_vm_nic(cluster_name):
+    arguments = json.loads(request.json)
+    status, msg = global_cache.perform_cluster_vm_nic_remove(cluster_name, arguments)
+    return jsonify({"resp": msg}), status

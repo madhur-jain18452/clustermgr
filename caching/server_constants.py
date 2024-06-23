@@ -107,7 +107,7 @@ class DBStatus(object):
 # Generic functions
 def basic_auth_header(username, password):
     token = b64encode(f"{username}:{password}".encode('utf-8')).decode("ascii")
-    return {'Authorization': f'Basic {token}'}
+    return f'Basic {token}'
 
 
 def generate_query_string(options):

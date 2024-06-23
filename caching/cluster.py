@@ -7,16 +7,17 @@ Author:
     Sahil Naphade (sahil.naphade@nutanix.com)
 """
 
-import urllib3
-import requests
+import json
 import logging
+import requests
 import time
 import typing
+import urllib3
 
 from concurrent import futures
 from threading import Lock
 from datetime import datetime
-from http import HTTPStatus
+from http import HTTPMethod, HTTPStatus
 
 from caching.NuVM import NuVM
 from caching.server_constants import PRISM_PORT, PRISM_REST_FINAL_EP, \
@@ -62,7 +63,11 @@ class Cluster:
 
         self._username = username
         self._password = password
-        self._headers = basic_auth_header(self._username, self._password)
+        self._headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': basic_auth_header(self._username, self._password)
+        }
         self._threadpool_exec = futures.ThreadPoolExecutor(max_workers=15)
 
         # Variables specific to the management framework
@@ -103,12 +108,9 @@ class Cluster:
         """
         mem = 0
         cores = 0
-        resp = requests.get(self.prism_rest_ep + HOSTS_EP,
-                            headers=self._headers, verify=False)
-        if resp.status_code == HTTPStatus.OK:
-            resp_json = resp.json()
-            for entity in resp_json['entities']:
-                CLUSTER_CACHE_LOGGER_.info(entity)
+        status_code, resp_json = self._request_cluster(self.prism_rest_ep + HOSTS_EP)
+        for entity in resp_json['entities']:
+            CLUSTER_CACHE_LOGGER_.info(entity)
                 # mem += entity['memory_capacity_in_bytes']
                 # cores += entity['num_cpu_cores'] * entity['num_cpu_threads']
                 # self.hosts.append(entity)
@@ -117,12 +119,9 @@ class Cluster:
         self.available_cores = cores
 
         # Get the Cluster UUID
-        resp = requests.get(self.prism_rest_ep + CLUSTER_EP,
-                            headers=self._headers, verify=False)
-        if resp.status_code == HTTPStatus.OK:
-            resp_json = resp.json()
-            self.cluster_uuid = resp_json['cluster_uuid']
-            self.id = resp_json['id']
+        status_code, resp_json = self._request_cluster(self.prism_rest_ep + CLUSTER_EP)
+        self.cluster_uuid = resp_json['cluster_uuid']
+        self.id = resp_json['id']
         pass
 
     def summary(self, summary_verbosity=0, print_summary=False) -> typing.Optional[typing.Dict]:
@@ -192,7 +191,7 @@ class Cluster:
         for ts, _ in self.vms_not_following_naming_conv.items():
             if ts > biggest_ts:
                 biggest_ts = ts
-        return self.vms_not_following_naming_conv[biggest_ts]
+        return self.vms_not_following_naming_conv.get(biggest_ts, {})
 
     def build_refresh_cache(self) -> None:
         """Build and/or refresh the VM cache for the cluster.
@@ -252,12 +251,10 @@ class Cluster:
 
         try:
             extra_requests = {"include_vm_nic_config": True}
-            res = requests.get(self.prism_rest_ep + VM_ENDPOINT +
-                               generate_query_string(extra_requests),
-                               headers=self._headers, verify=False)
+            status_code, resp_json = self._request_cluster(self.prism_rest_ep + VM_ENDPOINT + generate_query_string(extra_requests))
             CLUSTER_CACHE_LOGGER_.info(f"VMs on the cluster  "
                                        f"{self.name} fetched!")
-            return res.json()['entities']
+            return resp_json['entities']
         except Exception as ex:
             CLUSTER_CACHE_LOGGER_.exception(f"Exception occurred: {ex}."
                                             f"\n\t\tResponse: {res.status_code}")
@@ -518,8 +515,6 @@ class Cluster:
                 running_vm_list.append(vm_obj.to_json())
             for _, vm_obj in self.power_off_vms.items():
                 stopped_vm_list.append(vm_obj.to_json())
-            for _, vm_obj in self.power_off_vms.items():
-                stopped_vm_list.append(vm_obj.to_json())
             for _, vm_config_dict in self.skipped_vms.items():
                 templated_vm_list.append(vm_config_dict)
         return running_vm_list, stopped_vm_list, templated_vm_list
@@ -597,82 +592,213 @@ class Cluster:
             "transition": PowerState.OFF.upper(),
             "uuid": vm_obj.uuid
         }
-        import json
-        import time
-        loop_count = 10
         url = self.prism_rest_ep + VM_ENDPOINT + vm_obj.uuid + '/set_power_state'
 
-        headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-        auth_val = self._headers['Authorization']
-        headers['Authorization'] = auth_val
-
-        resp = requests.post(url, data=json.dumps(data), headers=headers, verify=False)
-
-        if resp.status_code == HTTPStatus.CREATED:
-            task_uuid = resp.json()['task_uuid']
-            CLUSTER_CACHE_LOGGER_.info(f"Created the task {task_uuid} to POWER"
-                                       f" OFF the VM {vm_name} UUID {uuid}")
-            while True and loop_count:
-                task_stat = requests.get(self.prism_rest_ep + 'tasks/' +
-                                         task_uuid, headers=headers,
-                                         verify=False)
-                if task_stat.status_code == HTTPStatus.OK:
-                    task_status_json = task_stat.json()
-
-                    if task_status_json['progress_status'] == TaskStatus.FAILED:
-                        err = {'message': f"Task UUID {task_uuid} failed "
-                                          f"on the cluster"}
-                        CLUSTER_CACHE_LOGGER_.error(err['message'])
-                        return HTTPStatus.EXPECTATION_FAILED, err
-                    elif task_status_json['progress_status'] == TaskStatus.SUCCEEDED:
-                        # Delete the VM from the powered ON VMs
-                        with self.vm_cache_lock:
-
-                            vm_json = vm_obj.to_json()
-                            prev_res = vm_json['total_resources_used']
-                            core_diff = prev_res[NuVMKeys.CORES_USED]
-                            mem_diff = prev_res[NuVMKeys.MEMORY_USED]
-
-                            print(f"Previous Resources was "
-                                  f"{self.utilized_resources[ClusterKeys.CORES]} cores"
-                                  f" and {self.utilized_resources[ClusterKeys.MEMORY]}"
-                                  f" memory")
-                            self.utilized_resources[ClusterKeys.CORES] -= core_diff
-                            self.utilized_resources[ClusterKeys.MEMORY] -= mem_diff
-                            print(f"Now Resources was "
-                                  f"{self.utilized_resources[ClusterKeys.CORES]}"
-                                  f" cores and {self.utilized_resources[ClusterKeys.MEMORY]}"
-                                  f" memory")
-
-                            vm_obj.process_power_off()
-
-                            # Add the VM to the stopped VM cache
-                            self.power_off_vms[uuid] = vm_obj
-                            self.powered_off_vm_count += 1
-                            # Remove the object from Running VMs cache
-                            del self.vm_cache[uuid]
-                            self.vm_count -= 1
-
-                            msg = {
-                                "message": f"Task {task_uuid} to power OFF VM"
-                                           f" {vm_name} UUID {uuid} succeeded.",
-                                "vm_config": vm_obj.to_json()
-                            }
-                            CLUSTER_CACHE_LOGGER_.info(msg['message'])
-
-                            # Update the VM state in cache to process shutdown
-                            vm_obj.process_power_off()
-                            self._check_consistency()
-                        return HTTPStatus.OK, msg
-                    time.sleep(2)
-            err = {'message': f"Task UUID {task_uuid} checking failed, timed out"}
+        try:
+            status_code, resp_json = self._request_cluster(url, data=data, method=HTTPMethod.POST)
+        except Exception as ex:
+            err = {'message': f"Task to power OFF VM {vm_name} UUID {uuid} could not"
+                          f" be created."}
             CLUSTER_CACHE_LOGGER_.error(err['message'])
-            return HTTPStatus.EXPECTATION_FAILED, err
-        err = {'message': f"Task to power OFF VM {vm_name} UUID {uuid} could not"
-                          f" be created. Status Code: {resp.status_code}"}
-        CLUSTER_CACHE_LOGGER_.error(err['message'])
-        return HTTPStatus.SERVICE_UNAVAILABLE, err
+            return HTTPStatus.SERVICE_UNAVAILABLE, err
 
+        task_uuid = resp_json['task_uuid']
+        task_info_str = f"POWERING OFF the VM {vm_name} UUID {uuid}"
+        CLUSTER_CACHE_LOGGER_.info(f"Created the task {task_uuid} to {task_info_str}")
+        status, msg = self._wait_for_task_completion(task_uuid, task_info_str)
+        if status == HTTPStatus.OK:
+            with self.vm_cache_lock:
+
+                vm_json = vm_obj.to_json()
+                prev_res = vm_json['total_resources_used']
+                core_diff = prev_res[NuVMKeys.CORES_USED]
+                mem_diff = prev_res[NuVMKeys.MEMORY_USED]
+
+                print(f"Previous Resources was "
+                        f"{self.utilized_resources[ClusterKeys.CORES]} cores"
+                        f" and {self.utilized_resources[ClusterKeys.MEMORY]}"
+                        f" memory")
+                self.utilized_resources[ClusterKeys.CORES] -= core_diff
+                self.utilized_resources[ClusterKeys.MEMORY] -= mem_diff
+                print(f"Now Resources was "
+                        f"{self.utilized_resources[ClusterKeys.CORES]}"
+                        f" cores and {self.utilized_resources[ClusterKeys.MEMORY]}"
+                        f" memory")
+
+                vm_obj.process_power_off()
+
+                # Add the VM to the stopped VM cache
+                self.power_off_vms[uuid] = vm_obj
+                self.powered_off_vm_count += 1
+                # Remove the object from Running VMs cache
+                del self.vm_cache[uuid]
+                self.vm_count -= 1
+
+                msg = {
+                    "message": f"Task {task_uuid} ({task_info_str}) succeeded.",
+                    "vm_config": vm_obj.to_json()
+                }
+                CLUSTER_CACHE_LOGGER_.info(msg['message'])
+
+                # Update the VM state in cache to process shutdown
+                vm_obj.process_power_off()
+                self._check_consistency()
+                return status, msg
+        err = {'message': f"Task UUID {task_uuid} checking failed, timed out"}
+        CLUSTER_CACHE_LOGGER_.error(err['message'])
+        return HTTPStatus.EXPECTATION_FAILED, err
+        
+
+    def _request_cluster(self, url, data=None, params=None, json_val=None,
+                         method=HTTPMethod.GET):
+        """Utility function and a wrapper to contact the Cluster.
+            Abstracts out the headers, information and so on.
+            Defaults to performing GET request.
+        
+            Args:
+                url: URL to contact the PRISM element on
+                data (optional): Dict object containing the data for the \
+                    request
+                json_val (optional): Dict object containing the JSON to be sent\
+                  in the body for the request
+
+            Returns:
+                Tuple(HTTPStatus, dict): Status returned from the request and \
+                    the dict containing message
+
+
+        """
+        if method == HTTPMethod.GET:
+            res = requests.get(url=url, headers=self._headers, verify=False)
+            if res.status_code in [HTTPStatus.OK,
+                                   HTTPStatus.ACCEPTED,
+                                   HTTPStatus.CREATED,
+                                   HTTPStatus.NO_CONTENT]:
+                return res.status_code, res.json()
+            else:
+                err_str = f"GET request failed with status code {res.status_code}, message: {res.text}"
+                CLUSTER_CACHE_LOGGER_.error(err_str)
+                return res.status_code, {'message': err_str}
+        if method == HTTPMethod.POST:
+            res = requests.post(url=url, headers=self._headers,
+                                data=json.dumps(data) if data else None,
+                                json=json.dumps(json_val) if json_val else None,
+                                verify=False)
+            if res.status_code in [HTTPStatus.OK,
+                                   HTTPStatus.ACCEPTED,
+                                   HTTPStatus.CREATED,
+                                   HTTPStatus.NO_CONTENT]:
+                return res.status_code, res.json()
+            else:
+                err_str = f"POST request failed with status code {res.status_code}, message: {res.text}"
+                CLUSTER_CACHE_LOGGER_.error(err_str)
+                return res.status_code, {'message': err_str}
+        if method == HTTPMethod.DELETE:
+            res = requests.delete(url=url, headers=self._headers,
+                                  data=json.dumps(data) if data else None,
+                                  json=json.dumps(json_val) if json_val else None,
+                                  verify=False)
+            if res.status_code in [HTTPStatus.OK,
+                                   HTTPStatus.ACCEPTED,
+                                   HTTPStatus.CREATED,
+                                   HTTPStatus.NO_CONTENT]:
+                return res.status_code, res.json()
+            else:
+                err_str = f"DELETE request failed with status code {res.status_code}, message: {res.text}"
+                CLUSTER_CACHE_LOGGER_.error(err_str)
+                return res.status_code, {'message': err_str}
+
+    def _wait_for_task_completion(self, task_uuid, task_info_str="", timeout=20):
+        start_time = time.time()
+        while (time.time() < (start_time + timeout)):
+            task_url = self.prism_rest_ep + 'tasks/' + task_uuid
+            status_code, task_status_json = self._request_cluster(task_url)
+            if status_code == HTTPStatus.OK:
+                if task_status_json['progress_status'] == TaskStatus.FAILED:
+                    err = {'message': f"Task UUID {task_uuid} failed "
+                                        f"on the cluster. Task: {task_info_str}"}
+                    CLUSTER_CACHE_LOGGER_.error(err['message'])
+                    return HTTPStatus.EXPECTATION_FAILED, err
+                elif task_status_json['progress_status'] == TaskStatus.SUCCEEDED:
+                    msg = {'message': f"Task UUID {task_uuid} succeeded "
+                                        f"on the cluster. Task: {task_info_str}"}
+                    # Delete the VM from the powered ON VMs
+                    return HTTPStatus.OK, msg
+                # If the task is not completed
+                elif task_status_json['progress_status'] in [TaskStatus.QUEUED,
+                                                             TaskStatus.SCHEDULED,
+                                                             TaskStatus.RUNNING]:
+                    pass
+            else:
+                err = {'message': f"Quertying task UUID {task_uuid} returned "
+                                  f" status code {status_code} on the cluster."
+                                  "Task: {task_info_str}"}
+                CLUSTER_CACHE_LOGGER_.error(err['message'])
+                return status_code, err
+            time.sleep(2)
+
+
+    def remove_vm_nic(self, vm_name=None,
+                      uuid=None) -> typing.Tuple[HTTPStatus, dict]:
+        """Function which removes a (or all) NIC from VMs on this cluster.
+        Creates a Task on the Cluster and waits for the task to finish.
+
+        Args:
+            vm_name (str): Name of the VM to search in the cache
+            uuid (str): UUID of the VM to search in the cache
+
+        Returns:
+            HTTPStatus Object, dict: Status of the request and the dict \
+                containing the message
+        """
+        from http import HTTPStatus
+        if not vm_name and not uuid:
+            exc = {'message': "Please provide any one of VM name or UUID"}
+            CLUSTER_CACHE_LOGGER_.exception(exc['message'])
+            return HTTPStatus.BAD_REQUEST, exc
+        vm_obj = None
+
+        if uuid:
+            with self.vm_cache_lock:
+                vm_obj = self.vm_cache.get(uuid, None)
+                if vm_obj is None:
+                    vm_obj = self.power_off_vms.get(uuid, None)
+                    if not vm_obj:
+                        msg = {'message': f"VM with name UUID {uuid} not found in the cache"}
+                        CLUSTER_CACHE_LOGGER_.error(msg['message'])
+                        return HTTPStatus.NOT_FOUND, msg
+                    else:
+                        CLUSTER_CACHE_LOGGER_.info(f"VM with UUID {uuid} Name {vm_obj.name} is powered OFF. Attempting to remove the NIC.")
+                else:
+                    CLUSTER_CACHE_LOGGER_.info(f"Attempting to hot-remove the NIC from the VM with UUID {uuid} Name {vm_obj.name}")
+        else:
+            info = self._map_vm_name_to_obj(vm_name)
+            if not info:
+                msg = {'message': f"VM with name {vm_name} not found in the cache"}
+                CLUSTER_CACHE_LOGGER_.error(msg['message'])
+                return HTTPStatus.NOT_FOUND, msg
+            uuid = info[0]
+            vm_obj = info[2]
+            if vm_obj.power_state == PowerState.ON:
+                CLUSTER_CACHE_LOGGER_.info(f"Attempting to hot-remove the NIC from the VM with UUID {uuid} Name {vm_obj.name}")
+            else:
+                CLUSTER_CACHE_LOGGER_.info(f"VM with UUID {uuid} Name {vm_obj.name} is powered OFF. Attempting to remove the NIC.")
+        # Now we have a populated vm_obj
+        # for each of the NICs in the VM, delete it
+        data = {"vm_uuid": vm_obj.uuid}
+        url = self.prism_rest_ep + VM_ENDPOINT + vm_obj.uuid + '/nics'
+        for nic_info in vm_obj.nics:
+            nic_id = nic_info['mac_address']
+            # if nic_info['is_connected'] is True:
+            data["nic_id"] = nic_id
+            nic_del_url = url + f'/{nic_id}'
+            try:
+                status, resp_json = self._request_cluster(nic_del_url, data, method=HTTPMethod.DELETE)
+            except Exception as ex:
+                CLUSTER_CACHE_LOGGER_.exception(ex)
+                return status, resp_json
+            task_uuid = resp_json['task_uuid']
+            tis = f"Removing NIC {nic_id} from VM {vm_obj.name}, UUID {vm_obj.uuid}"
+            CLUSTER_CACHE_LOGGER_.info(f"Triggered task {task_uuid}: {tis} on cluster {self.name}")
+            status, message = self._wait_for_task_completion(task_uuid=task_uuid, task_info_str=tis)
+            return status, message

@@ -603,6 +603,26 @@ class GlobalClusterCache:
                                                 " not found in the CACHE!!")
         return status, msg
 
+    def perform_cluster_vm_nic_remove(self, cluster_name, vm_info):
+        """Common function to change the power change of a VM for a cluster.
+            Currently only powers off a VM.
+            Args:
+                cluster_name (str): Name of the cluster on which the VM resides
+                vm_info (dict): Contains 'uuid' or 'name' for a VM
+        """
+        # TODO Pause the Cache refresh in this time
+        cluster_obj = None
+        from http import HTTPStatus
+        with self.GLOBAL_CLUSTER_CACHE_LOCK:
+            cluster_obj = self.GLOBAL_CLUSTER_CACHE.get(cluster_name, None)
+            if not cluster_obj:
+                err = {"message: "f"Cluster with name {cluster_name} not found"
+                       f" in the cache"}
+                GLOBAL_MGR_LOGGER.error(err)
+                return HTTPStatus.NOT_FOUND, err
+        return cluster_obj.remove_vm_nic(vm_name=vm_info.get('name', None),
+                                                uuid=vm_info.get('uuid', None))
+
     def get_all_vms_for_user(self, email, cluster=None,
                          include_powered_off_vms=False) -> typing.Tuple[typing.List, HTTPStatus]:
         """Returns list of VMs for one particular user

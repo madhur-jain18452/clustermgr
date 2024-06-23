@@ -76,9 +76,9 @@ class NuVM:
         self._config = config_json
         # NUVM_CACHE_LOGGER_.info(config_json)
         self._parent_cluster = parent_cluster_name
-        self._nics = self._config.get("vm_nics", [])
-        self._ip_address = self._nics[0].get("ip_address") \
-            if self._nics and "ip_address" in self._nics[0] else None
+        self.nics = self._config.get("vm_nics", [])
+        self._ip_address = self.nics[0].get("ip_address") \
+            if self.nics and "ip_address" in self.nics[0] else None
         self._threadpool = futures.ThreadPoolExecutor(max_workers=5)
 
         # Resource utilization tracking for the managed DBServers
@@ -163,8 +163,7 @@ class NuVM:
                     # Try contact the ERA endpoint for that VM
                     # TODO check with all possible combinations of username and pass
                     res = requests.get(HTTPS + self._ip_address + '/era/v0.9/dbservers',
-                                       headers=basic_auth_header(username="admin",
-                                                                 password="Nutanix.1"),
+                                       headers={'Authorization': f'Basic {basic_auth_header("admin", "Nutanix.1")}'},
                                        verify=False, timeout=2
                                        )
                     NUVM_CACHE_LOGGER_.debug("IP: {}, Status: {}".format(
@@ -262,6 +261,7 @@ class NuVM:
         json_obj["is_ndb_cvm"] = self.is_ndb_cvm
         json_obj["owner"] = self.owner
         json_obj["owner_email"] = self.owner_email
+        json_obj["nics"] = self.nics
         json_obj["total_resources_used"] = self.get_resources_used()
 
         return json_obj

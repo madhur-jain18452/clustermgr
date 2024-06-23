@@ -1,9 +1,10 @@
-import click 
-from prettytable import PrettyTable
+import click
+import json
 import requests
-from http import HTTPStatus
-from urllib import parse
 
+from http import HTTPStatus
+from prettytable import PrettyTable
+from urllib import parse
 
 from .constants import CLUSTER_EP, LOCAL_ENDPOINT
 from tools.helper import convert_mb_to_gb
@@ -45,8 +46,10 @@ def list_clusters():
 @click.option('--powered-off', '--po', is_flag=True, help="List the VMs "
                                                           "which are powered off")
 @click.option('--include-template-vms', is_flag=True, help="List the templated VMs")
+@click.option('--show-nics', '--sn', is_flag=True, help="Show NICs attached to a VM")
 def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
-             count, powered_off, show_owner, include_template_vms):
+             count, powered_off, show_owner, include_template_vms,
+             show_nics):
     """List of all the VMs on a particular cluster
     """
     params = {
@@ -84,14 +87,18 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
 
     res = requests.get(url)
     if res.status_code == HTTPStatus.NOT_FOUND:
-        click.echo("Cluster with name {} not found in the cache!")
+        click.echo(f"Cluster with name {cluster_name} not found in the cache!")
         return
     response = res.json()
     if powered_off:
         print("List of Powered OFF VMs:")
         if show_owner:
             columns.extend(['Owner', 'Owner Email'])
+        if show_nics:
+            columns.extend(['NIC information'])
         pt_po = PrettyTable(columns)
+        if show_nics:
+            pt_po.align['NIC information'] = 'l'
         sr_no = 1
         for each_vm in response.get("stopped_vm", []):
             data = [sr_no, each_vm['name']]
@@ -101,6 +108,8 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
             elif show_owner:
                 data.extend([each_vm['owner'] if each_vm['owner'] else '-',
                              each_vm['owner_email'] if each_vm['owner_email'] else '-'])
+            if show_nics:
+                data.extend([json.dumps(each_vm['nics'])])
             pt_po.add_row(data)
             sr_no += 1
         click.echo(pt_po)
@@ -113,7 +122,11 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
             columns.extend(["Cores Allocated", "Memory Allocated (in GB)"])
             if show_owner:
                 columns.extend(['Owner', 'Owner Email'])
+            if show_nics:
+                columns.extend(['NIC information'])
             pt = PrettyTable(columns)
+            if show_nics:
+                pt.align['NIC information'] = 'l'
             for _, vm_state in response.items():
                 sr_no = 1
                 for each_vm in vm_state["running_vm"]:
@@ -127,6 +140,8 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
                     elif show_owner:
                         data.extend([each_vm['owner'] if each_vm['owner'] else '-',
                                      each_vm['owner_email'] if each_vm['owner_email'] else '-'])
+                    if show_nics:
+                        data.extend([json.dumps(each_vm['nics'])])
                     pt.add_row(data)
                     sr_no += 1
             click.echo(f"Cluster {cluster_name} - Running VM list with resources : ")
@@ -141,7 +156,11 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
             columns.extend(["State"])
             if show_owner:
                 columns.extend(['Owner', 'Owner Email'])
+            if show_nics:
+                columns.extend(['NIC Information'])
             pt = PrettyTable(columns)
+            if show_nics:
+                pt.align['NIC Information'] = 'l'
             for each_vm in response.get('running_vm', []):
                 data = [sr_no, each_vm['name'], "RUNNING"]
                 if no_owner:
@@ -150,6 +169,8 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
                 elif show_owner:
                     data.extend([each_vm['owner'] if each_vm['owner'] else '-',
                                 each_vm['owner_email'] if each_vm['owner_email'] else '-'])
+                if show_nics:
+                    data.extend([json.dumps(each_vm['nics'])])
                 pt.add_row(data)
                 sr_no += 1
             for each_vm in response.get('stopped_vm', []):
@@ -160,6 +181,8 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
                 elif show_owner:
                     data.extend([each_vm['owner'] if each_vm['owner'] else '-',
                                 each_vm['owner_email'] if each_vm['owner_email'] else '-'])
+                if show_nics:
+                    data.extend([json.dumps(each_vm['nics'])])
                 pt.add_row(data)
                 sr_no += 1
         click.echo(pt)
@@ -183,7 +206,6 @@ def power_off_vm(cluster_name, off, uuid, name):
     if off:
         params['new_power_state'] = 'off'
     import json
-    print(power_state_url)
     res = requests.post(power_state_url, json=json.dumps(params))
     if res.status_code in [HTTPStatus.NOT_FOUND,
                            HTTPStatus.BAD_REQUEST,
@@ -197,3 +219,34 @@ def power_off_vm(cluster_name, off, uuid, name):
     else:
         click.echo(res.json())
 
+
+@cluster.command(name='vm-nic')
+@click.argument('cluster_name')
+@click.option('--remove', '-r', is_flag=True, default=True, help="Power OFF a VM")
+@click.option('--uuid', help="UUID of the VM to change Power State")
+@click.option('--name', help="Name of the VM to change Power State")
+def remove_vm_nic(cluster_name, remove, uuid, name):
+    """Sends request to change the power state of a VM running on this cluster
+    """
+    if not uuid and not name:
+        click.echo("At least one of the UUID or VM Name should be mentioned")
+        return
+    vm_nic_url = LOCAL_ENDPOINT + CLUSTER_EP + f'/{cluster_name}/vms/nics'
+    params = {
+        'uuid': uuid,
+        'name': name,
+    }
+    if remove:
+        params['nic_operation'] = 'remove'
+    res = requests.delete(vm_nic_url, json=json.dumps(params))
+    if res.status_code in [HTTPStatus.NOT_FOUND,
+                           HTTPStatus.BAD_REQUEST,
+                           HTTPStatus.EXPECTATION_FAILED,
+                           HTTPStatus.SERVICE_UNAVAILABLE]:
+        response = res.json()['resp']
+        click.echo(response['message'])
+    elif res.status_code == HTTPStatus.OK:
+        response = res.json()['resp']
+        click.echo(response['message'])
+    else:
+        click.echo(res.json())
