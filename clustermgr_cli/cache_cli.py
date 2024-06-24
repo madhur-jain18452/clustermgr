@@ -84,3 +84,14 @@ def get_offenses(resources, cluster, show_orphan_vms):
                 ptx.add_row(row)
                 sr_no += 1
             print(pt)
+
+@cache.command(name="update-ret")
+@click.option("--retain-offense", '-r', is_flag=True, help="Update the count of timestamps that are retained in the system")
+def get_offenses(retain_offense):
+    offense_url = LOCAL_ENDPOINT + CACHE_EP + "/offenses/refresh_rate"
+    args = {}
+    if retain_offense:
+        args['retain_offense'] = retain_offense
+    res = requests.patch(offense_url, json=json.dumps(args))
+    print(res.json()['message'])
+
