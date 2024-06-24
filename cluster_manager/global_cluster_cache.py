@@ -8,6 +8,7 @@ Author:
 """
 import json
 import logging
+import os
 import threading
 import time
 import typing
@@ -24,6 +25,7 @@ from common.constants import UserKeys
 from custom_exceptions.exceptions import SameTimestampError
 from users.user import User
 
+DEFAULT_OFFENSE_RETAIN_VALUE = 5000
 
 GLOBAL_MGR_LOGGER = logging.getLogger(__name__)
 GLOBAL_MGR_LOGGER.setLevel(logging.DEBUG)
@@ -624,7 +626,8 @@ class GlobalClusterCache:
                                                 uuid=vm_info.get('uuid', None))
 
     def get_all_vms_for_user(self, email, cluster=None,
-                         include_powered_off_vms=False) -> typing.Tuple[typing.List, HTTPStatus]:
+                        include_powered_off_vms=False
+                        ) -> typing.Tuple[typing.List, HTTPStatus]:
         """Returns list of VMs for one particular user
             Args:
                 email (str): Email of the user
@@ -775,7 +778,7 @@ class GlobalClusterCache:
 
         if retain_diff:
             ts = int(time.time())
-            print(f"Adding entry in the timed_offenses: at ts: {ts}")
+            GLOBAL_MGR_LOGGER.debug(f"Adding entry in the timed_offenses: at ts: {ts}")
             self.timed_offenses[ts] = {}
             if get_users_over_util:
                 self.timed_offenses[ts]['users_over_util'] = users_over_utilizing_quota
@@ -783,7 +786,13 @@ class GlobalClusterCache:
                 self.timed_offenses[ts]['vm_using_per_cluster'] = vm_resources_per_cluster
             if include_vm_without_prefix:
                 self.timed_offenses[ts]['vm_without_prefix'] = vm_without_prefix
-            print(f"The entry in the timed_offenses: at ts is {json.dumps(self.timed_offenses[ts], indent=4)}")
+            while len(self.timed_offenses) > int(os.environ.get('offense_cache_retain', str(DEFAULT_OFFENSE_RETAIN_VALUE))):
+                GLOBAL_MGR_LOGGER.info(f"There are {len(self.timed_offenses)} "
+                                       "offense entries. Pruning to reach "
+                                       f"{os.environ.get('offense_cache_retain')}")
+                self.timed_offenses.popitem(last=False)
+            # GLOBAL_MGR_LOGGER.debug(f"The entry in the timed_offenses: at ts is {json.dumps(self.timed_offenses[ts], indent=4)}")
+            # print(f"The entry in the timed_offenses: at ts is {json.dumps(self.timed_offenses[ts], indent=4)}")
 
         if print_summary:
             json.dumps(users_over_utilizing_quota, indent=4)
@@ -792,7 +801,9 @@ class GlobalClusterCache:
         return users_over_utilizing_quota, vm_resources_per_cluster, vm_without_prefix
 
     # Functions helping the Cluster Monitor
-    def get_timed_offenses(self, start_ts, end_ts) -> typing.Tuple[int, typing.Dict, int, typing.Dict]:
+    def get_timed_offenses(self, start_ts,
+                           end_ts
+                           ) -> typing.Tuple[int, typing.Dict, int, typing.Dict]:
         """Retuns the consolidated list of the quota and VM offenses, which
             has not changed from start_ts and end_ts.
             If exact timestamps do not exist, returns the data at closest \
@@ -801,13 +812,16 @@ class GlobalClusterCache:
                 start_ts (int | None): Older timestamp to check for the diff
                 end_ts (int): Newer timestamp to check
             Returns:
-                tuple(int, dict, int, dict): actual_old_ts, old_offenses, actual_new_ts, new_offenses
+                tuple(int, dict, int, dict): actual_old_ts, old_offenses,\
+                    actual_new_ts, new_offenses
             Raises:
                 SameTimestampError
         """
         if not start_ts:
             start_ts = int(time.time())
 
+        GLOBAL_MGR_LOGGER.debug(json.dumps(self.timed_offenses))
+    
         # Get the closest time stamp to start_ts in the cache
         closest_start_ts = min(self.timed_offenses.keys(), key=lambda ts: abs(start_ts - ts))
 

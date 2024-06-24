@@ -647,7 +647,7 @@ class Cluster:
         err = {'message': f"Task UUID {task_uuid} checking failed, timed out"}
         CLUSTER_CACHE_LOGGER_.error(err['message'])
         return HTTPStatus.EXPECTATION_FAILED, err
-        
+
 
     def _request_cluster(self, url, data=None, params=None, json_val=None,
                          method=HTTPMethod.GET):
@@ -736,7 +736,6 @@ class Cluster:
                 CLUSTER_CACHE_LOGGER_.error(err['message'])
                 return status_code, err
             time.sleep(2)
-
 
     def remove_vm_nic(self, vm_name=None,
                       uuid=None) -> typing.Tuple[HTTPStatus, dict]:

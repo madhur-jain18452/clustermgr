@@ -35,7 +35,7 @@ str_to_time_unit_map = {
     's': ('seconds', 1),
     'm': ('minutes', 60),
     'h': ('hour', 60*60),
-    'd': ('day', 24*60*60)
+    'd': ('day_time', 24*60*60)
 }
 
 

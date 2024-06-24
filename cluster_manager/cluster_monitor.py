@@ -2,9 +2,10 @@
 import logging
 import smtplib
 import threading
+import os
 import time
 
-from datetime import date
+from datetime import date, datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -41,10 +42,10 @@ class ClusterMonitor:
         self.mailer = smtplib.SMTP()
         pass
 
-    def send_emails(self, list_to_emails, from_email):
+    def send_warning_emails(self):
         pass
 
-    def calculate_continued_offenses(self, from_timestamp=None,
+    def _calculate_continued_offenses(self, from_timestamp=None,
                                      new_timestamp=None,
                                      timediff=ONE_DAY_IN_SECS):
         continued_offenses = {}
@@ -94,5 +95,13 @@ class ClusterMonitor:
                             # List of values (typically strings) TODO Handle other cases
                             common_offenders = set(old_v).intersection(set(new_v))
                             continued_offenses[k] = common_offenders
-
         pass
+
+    def take_action_offenses(self):
+        current_time = time.time()
+        first_action_run = float(os.environ.get("first_action_run"))
+        if current_time < first_action_run:
+            cm_logger.info(f"Triggered action at {datetime.fromtimestamp(current_time)}. First should not start before {datetime.fromtimestamp(first_action_run)}")
+            return
+        start_time = time.time() - ONE_DAY_IN_SECS
+        self._calculate_continued_offenses(from_timestamp=start_time, new_timestamp=current_time)
