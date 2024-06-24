@@ -31,3 +31,4 @@ def convert_gb_to_mb(memory_in_gb) -> float:
 
 def convert_bytes_to_gb(memory_in_bytes) -> float:
     return memory_in_bytes / (BINARY_CONVERSION_FACTOR**3)
+

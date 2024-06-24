@@ -48,6 +48,13 @@ class ClusterMonitor:
     def _calculate_continued_offenses(self, from_timestamp=None,
                                      new_timestamp=None,
                                      timediff=ONE_DAY_IN_SECS):
+        """Helper function that can calculate difference in upto
+            two levels of JSON
+            Args:
+                from_timestamp
+                new_timestamp
+                timediff
+        """
         continued_offenses = {}
         if new_timestamp is None:
             new_timestamp = int(time.time())
