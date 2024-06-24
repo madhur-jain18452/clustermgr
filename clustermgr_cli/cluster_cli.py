@@ -6,6 +6,7 @@ from http import HTTPStatus
 from prettytable import PrettyTable
 from urllib import parse
 
+from caching.server_constants import PowerState
 from .constants import CLUSTER_EP, LOCAL_ENDPOINT
 from tools.helper import convert_mb_to_gb
 
@@ -144,6 +145,22 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
                         data.extend([json.dumps(each_vm['nics'])])
                     pt.add_row(data)
                     sr_no += 1
+                if include_template_vms:
+                    # For template VMs, we are not storing the resources info
+                    for each_vm in vm_state.get("template_vm", []):
+                        if each_vm['power_state'] == PowerState.ON:
+                            data = [sr_no, each_vm['name'] + '*',
+                                    str(each_vm['num_cores_per_vcpu'] * each_vm['num_vcpus'])+'*',
+                                    str(convert_mb_to_gb(each_vm['memory_mb'])+'*')
+                                ]
+                            if no_owner:
+                                continue
+                            elif show_owner:
+                                data.extend(['-', '-'])
+                            if show_nics:
+                                data.extend(['-'])
+                            pt.add_row(data)
+                            sr_no += 1
             click.echo(f"Cluster {cluster_name} - Running VM list with resources : ")
             click.echo(pt)
             return
@@ -185,6 +202,18 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
                     data.extend([json.dumps(each_vm['nics'])])
                 pt.add_row(data)
                 sr_no += 1
+            if include_template_vms:
+                # For template VMs, we are not storing the resources info
+                for each_vm in response.get("template_vm", []):
+                    data = [sr_no, each_vm['name'] + '*', "TEMPLATE"]
+                    if no_owner:
+                        continue
+                    elif show_owner:
+                        data.extend(['-', '-'])
+                    if show_nics:
+                        data.extend(['-'])
+                    pt.add_row(data)
+                    sr_no += 1
         click.echo(pt)
 
 @cluster.command(name='vm-power')
