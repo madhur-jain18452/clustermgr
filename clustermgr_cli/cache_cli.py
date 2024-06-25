@@ -1,8 +1,15 @@
+"""
+Defines all the CLIs defined for the cache
 
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
 
-import click 
-import requests
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
+import click
 import json
+import requests
 
 from prettytable import PrettyTable
 from http import HTTPStatus

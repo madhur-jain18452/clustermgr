@@ -1,3 +1,12 @@
+"""
+Defines all custom exception classes
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
 class ActionAlreadyPerformedError(Exception):
     """Signifies that an action has already been performed
     Or that a resource has already undergone the expected change"""

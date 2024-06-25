@@ -32,7 +32,7 @@ urllib3.disable_warnings()
 # Setting up the logging
 CLUSTER_CACHE_LOGGER_ = logging.getLogger(__name__)
 CLUSTER_CACHE_LOGGER_.setLevel(logging.DEBUG)
-handler = logging.FileHandler("cluster.log", mode='w')
+handler = logging.FileHandler("cmgr_cluster.log", mode='w')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 CLUSTER_CACHE_LOGGER_.addHandler(handler)
@@ -335,11 +335,15 @@ class Cluster:
                                                    f"Consumed {new_cores_used} "
                                                    f"cores and {new_mem_used} "
                                                    f"memory.")
+                        # Since the NIC config and the IP can change, just update it
+                        vm_obj.nics = vm_config.get('vm_nics', [])
                         continue
                     # If it was already cached, no changes
                     if uuid in self.vm_cache:
                         if uuid in self.vms_added_since_last_cache_build:
                             self.vms_added_since_last_cache_build.remove(uuid)
+                        # Since the NIC config and the IP can change, just update it
+                        self.vm_cache[uuid].nics = vm_config.get('vm_nics', [])
                         continue
                     # If the VM is a new VM altogether
                     else:
@@ -386,6 +390,8 @@ class Cluster:
                                                        f"Released {core_diff} "
                                                        f"cores and {mem_diff} "
                                                        f"memory.")
+                            # Since the NIC config and the IP can change, just update it
+                            vm_obj.nics = vm_config.get('vm_nics', [])
                             continue
                         # If it is a new VM altogether
                         else:
@@ -393,6 +399,8 @@ class Cluster:
                             self.powered_off_vm_count += 1
                     # The VM was already in the cache tracking powered down VMs
                     else:
+                        # Since the NIC config and the IP can change, just update it
+                        self.power_off_vms[uuid].nics = vm_config.get('vm_nics', [])
                         pass
             self._check_consistency()
 
@@ -715,13 +723,13 @@ class Cluster:
             status_code, task_status_json = self._request_cluster(task_url)
             if status_code == HTTPStatus.OK:
                 if task_status_json['progress_status'] == TaskStatus.FAILED:
-                    err = {'message': f"Task UUID {task_uuid} failed "
-                                        f"on the cluster. Task: {task_info_str}"}
+                    err = {'message': f'Task UUID {task_uuid} failed '
+                                      f'on the cluster. Task: {task_info_str}'}
                     CLUSTER_CACHE_LOGGER_.error(err['message'])
                     return HTTPStatus.EXPECTATION_FAILED, err
                 elif task_status_json['progress_status'] == TaskStatus.SUCCEEDED:
-                    msg = {'message': f"Task UUID {task_uuid} succeeded "
-                                        f"on the cluster. Task: {task_info_str}"}
+                    msg = {'message': f'Task UUID {task_uuid} succeeded '
+                                      f'on the cluster. Task: {task_info_str}'}
                     # Delete the VM from the powered ON VMs
                     return HTTPStatus.OK, msg
                 # If the task is not completed
@@ -730,12 +738,14 @@ class Cluster:
                                                              TaskStatus.RUNNING]:
                     pass
             else:
-                err = {'message': f"Quertying task UUID {task_uuid} returned "
-                                  f" status code {status_code} on the cluster."
-                                  "Task: {task_info_str}"}
+                err = {'message': f'Querying task UUID {task_uuid} returned '
+                                  f' status code {status_code} on the cluster.'
+                                  f'Task: {task_info_str}'}
                 CLUSTER_CACHE_LOGGER_.error(err['message'])
                 return status_code, err
             time.sleep(2)
+        return HTTPStatus.REQUEST_TIMEOUT, {'message': f'Waiting for task UUID'
+                                                       f' {task_uuid} timed out'}
 
     def remove_vm_nic(self, vm_name=None,
                       uuid=None) -> typing.Tuple[HTTPStatus, dict]:
@@ -791,6 +801,8 @@ class Cluster:
             # if nic_info['is_connected'] is True:
             data["nic_id"] = nic_id
             nic_del_url = url + f'/{nic_id}'
+            status = HTTPStatus.SERVICE_UNAVAILABLE
+            resp_json = {}
             try:
                 status, resp_json = self._request_cluster(nic_del_url, data, method=HTTPMethod.DELETE)
             except Exception as ex:
@@ -798,6 +810,10 @@ class Cluster:
                 return status, resp_json
             task_uuid = resp_json['task_uuid']
             tis = f"Removing NIC {nic_id} from VM {vm_obj.name}, UUID {vm_obj.uuid}"
-            CLUSTER_CACHE_LOGGER_.info(f"Triggered task {task_uuid}: {tis} on cluster {self.name}")
+            CLUSTER_CACHE_LOGGER_.info(f"Triggered task {task_uuid}: '{tis}' on cluster {self.name}")
             status, message = self._wait_for_task_completion(task_uuid=task_uuid, task_info_str=tis)
-            return status, message
+            if status == HTTPStatus.OK:
+                CLUSTER_CACHE_LOGGER_.info(f"RemoveNIC:TASK_SUCC for cluster {self.name} for VM {vm_obj.name}, UUID {vm_obj.uuid}, NIC: {nic_id}")
+            else:
+                CLUSTER_CACHE_LOGGER_.warning(f"RemoveNIC:TASK_FAIL for cluster {self.name} for VM {vm_obj.name}, UUID {vm_obj.uuid}, NIC: {nic_id}")
+        return status, message

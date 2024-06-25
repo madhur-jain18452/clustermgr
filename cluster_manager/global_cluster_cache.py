@@ -1,4 +1,4 @@
-"""Global ClusterManager acts as a cohesion between the Users and clusters
+"""Global ClusterCache: Stores the data and acts as a cohesion between the Users and clusters
  (and VMs)
 
 Copyright (c) 2024 Nutanix Inc. All rights reserved.
@@ -31,7 +31,7 @@ DEFAULT_OFFENSE_RETAIN_VALUE = 5000
 
 GLOBAL_MGR_LOGGER = logging.getLogger(__name__)
 GLOBAL_MGR_LOGGER.setLevel(logging.DEBUG)
-handler = logging.FileHandler("global_cache.log", mode='w')
+handler = logging.FileHandler("cmgr_global_cache.log", mode='w')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 GLOBAL_MGR_LOGGER.addHandler(handler)
@@ -388,7 +388,7 @@ class GlobalClusterCache:
                                 break
                         if not pref_found:
                             cluster_obj.add_vm_with_no_prefix(ts, vm_obj.name, vm_obj.uuid)
-                            GLOBAL_MGR_LOGGER.warning(f"Cluster {cluster_name} - "
+                            GLOBAL_MGR_LOGGER.debug(f"Cluster {cluster_name} - "
                                                     f"No prefix matched for the "
                                                     f"VM {vm_obj.name}")
                 for uuid, vm_obj in cluster_obj.power_off_vms.items():
@@ -417,7 +417,7 @@ class GlobalClusterCache:
                                 break
                         if not pref_found:
                             cluster_obj.add_vm_with_no_prefix(ts, vm_obj.name, vm_obj.uuid)
-                            GLOBAL_MGR_LOGGER.warning(f"Cluster {cluster_name} - "
+                            GLOBAL_MGR_LOGGER.debug(f"Cluster {cluster_name} - "
                                                     f"No prefix matched for the "
                                                     f"(PoweredOFF) VM {vm_obj.name}")
             GLOBAL_MGR_LOGGER.info(f"Mapping for cluster {cluster_name} done! Cache is now READY!")
@@ -628,12 +628,12 @@ class GlobalClusterCache:
         with self.GLOBAL_CLUSTER_CACHE_LOCK:
             cluster_obj = self.GLOBAL_CLUSTER_CACHE.get(cluster_name, None)
             if not cluster_obj:
-                err = {"message: "f"Cluster with name {cluster_name} not found"
-                       f" in the cache"}
-                GLOBAL_MGR_LOGGER.error(err)
+                err = {"message": f"Cluster with name {cluster_name} not found in the cache"}
+                GLOBAL_MGR_LOGGER.error(err['message'])
                 return HTTPStatus.NOT_FOUND, err
+        # VM NIC removal does not affect the user
         return cluster_obj.remove_vm_nic(vm_name=vm_info.get('name', None),
-                                                uuid=vm_info.get('uuid', None))
+                                         uuid=vm_info.get('uuid', None))
 
     def get_all_vms_for_user(self, email, cluster=None,
                         include_powered_off_vms=False
@@ -847,7 +847,7 @@ class GlobalClusterCache:
         if not start_ts:
             start_ts = int(time.time())
 
-        GLOBAL_MGR_LOGGER.debug(json.dumps(self.timed_offenses))
+        # GLOBAL_MGR_LOGGER.debug(json.dumps(self.timed_offenses))
     
         # Get the closest time stamp to start_ts in the cache
         closest_start_ts = min(self.timed_offenses.keys(), key=lambda ts: abs(start_ts - ts))

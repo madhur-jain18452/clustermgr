@@ -1,4 +1,9 @@
 """File to run the main logic of the ClusterMgr
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
 """
 import argparse
 import os
@@ -112,11 +117,10 @@ if __name__ == "__main__":
     # tm.add_repeated_task(global_cache, "rebuild_cache", ref_freq,
                         #  task_name="Refreshing cluster cache")
 
-
     cluster_monitor = ClusterMonitor()
     global_cache.get_offending_items(get_vm_resources_per_cluster=True,
                                      retain_diff=True)
-    kwargs = {'get_vm_resources_per_cluster':True,'retain_diff':True}
+    kwargs = {'get_vm_resources_per_cluster': True, 'retain_diff': True}
     tm.add_repeated_task(global_cache, "get_offending_items", parse_freq_str_to_json(args.offense_refresh),
                          task_name="Populating offenses", **kwargs)
     # c_time = time.time()
@@ -145,7 +149,7 @@ if __name__ == "__main__":
     action_frequency = parse_freq_str_to_json(args.action_frequency)
     print(f"Will take action on the continued offenses at {datetime.fromtimestamp(first_action_run)} with frequency: {action_frequency}")
     tm.add_repeated_task(cluster_monitor, "take_action_offenses", action_frequency,
-                         task_name="Send Warning Emails")
+                         task_name="Take action on user offenses")
 
     retain_in_sec = convert_freq_str_to_seconds(args.retain_offense)
     import math

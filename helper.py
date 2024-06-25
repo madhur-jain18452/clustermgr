@@ -1,7 +1,16 @@
-import yaml
+"""
+Stores the helper functions for the main function
+like parsing, loading and verifying correctness.
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
 import json
 import typing
-
+import yaml
 
 def load_config_file(file_path) -> typing.Dict:
     data = {}

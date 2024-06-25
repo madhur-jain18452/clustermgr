@@ -1,0 +1,2 @@
+# Zip and compress all logs every day at 5 PM
+0 17 * * * zip ./logs_$(date +\%Y\%m\%d).zip ./cmgr_*.log && gzip ./logs_$(date +\%Y\%m\%d).zip && truncate -s 0 ./cmgr_*.log

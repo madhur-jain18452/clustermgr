@@ -11,13 +11,16 @@ import logging
 import threading
 import typing
 
+from copy import deepcopy
+
 from caching.server_constants import PowerState
-from custom_exceptions.exceptions import InconsistentCacheError
 from common.constants import Resources as RES, UserKeys as USRK
+from custom_exceptions.exceptions import InconsistentCacheError
+from tools.helper import BINARY_CONVERSION_FACTOR
 
 USER_LOGGER_ = logging.getLogger(__name__)
 USER_LOGGER_.setLevel(logging.DEBUG)
-handler = logging.FileHandler("user.log", mode='w')
+handler = logging.FileHandler("cmgr_user.log", mode='w')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 USER_LOGGER_.addHandler(handler)
@@ -79,9 +82,10 @@ class User:
                     # print(self.email)
                     self.global_cores_quota = quota_json[RES.CORES]
                     # This is in GB
-                    self.global_mem_quota = quota_json[RES.MEMORY]
+                    self.global_mem_quota = quota_json[RES.MEMORY]*BINARY_CONVERSION_FACTOR
                 else:
-                    self.quotas[cluster_name] = quota_json
+                    self.quotas[cluster_name] = {RES.CORES: quota_json.get(RES.CORES, -1),
+                                                 RES.MEMORY: (quota_json.get(RES.MEMORY, -1)*BINARY_CONVERSION_FACTOR)}
         # Verify if the global quota is provided, If not, the total
         # allowed resources will be the limit
         if self.global_mem_quota == 0 or self.global_cores_quota == 0:
@@ -91,8 +95,8 @@ class User:
             total_mem = 0
             total_core = 0
             for _, quota_json in self.quotas.items():
-                total_core += quota_json[RES.CORES]
-                total_mem += quota_json[RES.MEMORY]
+                total_core += quota_json[RES.CORES] if quota_json[RES.CORES] > 0 else 0
+                total_mem += quota_json[RES.MEMORY] if quota_json[RES.MEMORY] > 0 else 0
             self.global_mem_quota = self.global_mem_quota if self.global_mem_quota != 0 else total_mem
             self.global_cores_quota = self.global_cores_quota if self.global_cores_quota != 0 else total_core
 
@@ -138,14 +142,18 @@ class User:
         json_obj[USRK.GLOBAL_UTILIZED] = self.total_resource_tracker
         json_obj[USRK.CLUSTER_UTILIZED] = self.cluster_resource_tracker
         json_obj[USRK.VM_UTILIZED] = self.vm_resource_tracker
-        return json_obj
+        return deepcopy(json_obj)
 
     def _back_populate_vm_resources(self, vm_uuid, parent_cluster_name,
                                     mem_diff, cores_diff, power_state=PowerState.OFF):
         with self.resources_lock:
             # If it is a new VM
             if vm_uuid not in self.vm_resource_tracker:
-                self.vm_resource_tracker[vm_uuid] = {RES.CORES: 0, RES.MEMORY: 0, "parent_cluster": parent_cluster_name, "power_state": power_state}
+                self.vm_resource_tracker[vm_uuid] = {
+                    RES.CORES: 0,
+                    RES.MEMORY: 0,
+                    "parent_cluster": parent_cluster_name,
+                    "power_state": power_state}
                 USER_LOGGER_.debug(f"{self.email} - New VM {vm_uuid} being tracked.")
 
             USER_LOGGER_.debug(f"VM - {self.email} - " + vm_uuid +
@@ -400,14 +408,16 @@ class User:
             if cluster_name in self.quotas:
                 for key in [RES.CORES, RES.MEMORY]:
                     if key in self.quotas[cluster_name]:
-                        if res_used[key] > self.quotas[cluster_name][key]:
+                        if (self.quotas[cluster_name][key] > 0 and
+                            res_used[key] > self.quotas[cluster_name][key]):
                             is_offending = True
-                            diff = res_used[key] - self.quotas[cluster_name][key]
+                            val = self.quotas[cluster_name][key]
+                            diff = res_used[key] - val
                             USER_LOGGER_.warning(f"User {self.email} is over-utilizing "
                                                  f"allocated {key} on the cluster "
                                                  f"{cluster_name} by {diff} "
                                                  f"{"GB" if key == RES.MEMORY else ""}. "
-                                                 f"Quota: {self.quotas[cluster_name][key]}"
+                                                 f"Quota: {val if val > 0 else "Nil"}"
                                                  f", used: {res_used[key]}")
                             if cluster_name not in offenses:
                                 offenses[cluster_name] = {}
@@ -423,6 +433,14 @@ class User:
             if "global" not in offenses:
                 offenses["global"] = {}
             offenses["global"][RES.MEMORY] = total_memory_used - self.global_mem_quota
+
+        # Add quotas to reduce the API calls to the global cache
+        # quotas = {"global": {}, "cluster": {}}
+        # quotas["global"][RES.CORES] = self.global_cores_quota
+        # quotas["global"][RES.MEMORY] = self.global_mem_quota
+        # quotas["cluster"] = self.quotas
+        # offenses["\"] = quotas
+
         return is_offending, offenses
 
     def update_name(self, new_name) -> bool:

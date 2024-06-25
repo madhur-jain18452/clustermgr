@@ -1,3 +1,12 @@
+"""
+Defines all the CLIs defined for a cluster
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
 import click
 import json
 import requests

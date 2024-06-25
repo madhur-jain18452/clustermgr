@@ -16,8 +16,9 @@ import requests
 import typing
 import logging
 
-from http import HTTPStatus
 from concurrent import futures
+from copy import deepcopy
+from http import HTTPStatus
 
 from caching.server_constants import basic_auth_header, PowerState, HTTPS
 from tools.helper import convert_mb_to_gb
@@ -25,7 +26,7 @@ from tools.helper import convert_mb_to_gb
 urllib3.disable_warnings()
 NUVM_CACHE_LOGGER_ = logging.getLogger(__name__)
 NUVM_CACHE_LOGGER_.setLevel(logging.DEBUG)
-handler = logging.FileHandler(f"{__name__}.log", mode='w')
+handler = logging.FileHandler(f"cmgr_NuVM.log", mode='w')
 formatter = logging.Formatter("%(name)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 NUVM_CACHE_LOGGER_.addHandler(handler)
@@ -264,7 +265,7 @@ class NuVM:
         json_obj["nics"] = self.nics
         json_obj["total_resources_used"] = self.get_resources_used()
 
-        return json_obj
+        return deepcopy(json_obj)
 
     def process_power_off(self):
         """Sets the status of the VM as powered OFF and updates self resources

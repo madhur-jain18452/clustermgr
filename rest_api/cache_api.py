@@ -1,3 +1,12 @@
+"""
+Defines all the REST APIs for the cache.
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
 import json
 import os
 
@@ -10,6 +19,7 @@ from helper import parse_freq_str_to_json
 
 cache_blue_print = Blueprint('cache', __name__)
 
+# This is a singleton object
 global_cache = GlobalClusterCache()
 
 
@@ -50,7 +60,7 @@ def get_all_offenses():
                         "Clusters are in good shape."}), HTTPStatus.OK
 
 
-@cache_blue_print.route("/cache/offenses/refresh_rate", method=[HTTPMethod.PATCH])
+@cache_blue_print.route("/cache/offenses/refresh_rate", methods=[HTTPMethod.PATCH])
 def update_refresh_rates():
     arguments = json.loads(request.json)
     if 'retain_offense' in arguments:

@@ -1,11 +1,19 @@
-import datetime
+"""
+Defines the 
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
+import logging
 import schedule
 import threading
-import logging
 import time
 
 task_logger = logging.getLogger(__name__)
-handler = logging.FileHandler(f"{__name__}.log", mode='w')
+handler = logging.FileHandler(f"cmgr_tasks.log", mode='w')
 formatter = logging.Formatter("%(name)s - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 task_logger.addHandler(handler)

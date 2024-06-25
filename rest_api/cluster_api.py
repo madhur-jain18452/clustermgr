@@ -1,3 +1,12 @@
+"""
+Defines all the REST APIs for the cluster.
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
 import json
 
 from flask import Blueprint, jsonify, request

@@ -1,11 +1,22 @@
+"""
+Defines all the CLIs defined for the Users
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
+
 import click
-import prettytable
 import json
+import prettytable
 import requests
 
 from http import HTTPStatus
 
 from .constants import USER_EP, LOCAL_ENDPOINT
+from tools.helper import convert_mb_to_gb
 
 BASE_USERS_EP = LOCAL_ENDPOINT + USER_EP
 
@@ -39,11 +50,15 @@ def list(prefix, quota):
             cluster_quota_str = ""
             if each_data.get('cluster_quota', {}):
                 for cname, quota in each_data['cluster_quota'].items():
-                    cluster_quota_str += f"'{cname}': {quota.get('cores', '-')} cores, {quota.get('memory', '-')} GB memory\n"
+                    mem_val = quota.get('memory', '-')
+                    if mem_val is not str:
+                        mem_val = convert_mb_to_gb(mem_val)
+                    cluster_quota_str += f"'{cname}': {quota.get('cores', '-')} cores, {mem_val} GB memory\n"
             else:
                 cluster_quota_str = "No quota per cluster"
             data.extend([each_data['global_resources_quota']['cores'],
-                         each_data['global_resources_quota']['memory'], cluster_quota_str])
+                         convert_mb_to_gb(each_data['global_resources_quota']['memory']),
+                         cluster_quota_str])
         pt.add_row(data)
     click.echo(pt)
 

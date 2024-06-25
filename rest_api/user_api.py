@@ -1,7 +1,18 @@
+"""
+Defines all the REST APIs for the cluster.
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
 import json
-from cluster_manager.global_cluster_cache import GlobalClusterCache
+
 from flask import Blueprint, jsonify, request
 from http import HTTPStatus, HTTPMethod
+
+from cluster_manager.global_cluster_cache import GlobalClusterCache
 
 user_blue_print = Blueprint('user', __name__)
 

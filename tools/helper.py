@@ -1,4 +1,5 @@
-"""Defines helper functions and variables to work with memory calculation
+"""
+Defines helper functions and variables to work with memory calculation
 
 Copyright (c) 2024 Nutanix Inc. All rights reserved.
 

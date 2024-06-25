@@ -1,3 +1,12 @@
+"""
+Defines the constants used in the codebase
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
 class UserKeys(object):
     """Keys used in the User class"""
     # Standard Keys to be used

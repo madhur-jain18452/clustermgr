@@ -1,3 +1,12 @@
+"""
+Email Client: Wrapper to send the Mails to the users of the system
+
+Copyright (c) 2024 Nutanix Inc. All rights reserved.
+
+Author:
+    Sahil Naphade (sahil.naphade@nutanix.com)
+"""
+
 import json
 import smtplib
 from email.mime.multipart import MIMEMultipart
