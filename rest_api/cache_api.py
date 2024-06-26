@@ -19,17 +19,16 @@ from helper import parse_freq_str_to_json
 
 cache_blue_print = Blueprint('cache', __name__)
 
-# This is a singleton object
-global_cache = GlobalClusterCache()
-
 
 @cache_blue_print.route("/cache", methods=[HTTPMethod.GET])
 def get_cache_summary():
+    global_cache = GlobalClusterCache()
     return jsonify(global_cache.summary(print_summary=False)), HTTPStatus.OK
 
 
 @cache_blue_print.route("/cache/offenses", methods=[HTTPMethod.GET])
 def get_all_offenses():
+    global_cache = GlobalClusterCache()
     resources_req = False
     resources_param = request.args.get('resources', 'false').lower()
     if resources_param in ['true', '1', 'yes', 'on']:

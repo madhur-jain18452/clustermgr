@@ -37,7 +37,7 @@ handler.setFormatter(formatter)
 GLOBAL_MGR_LOGGER.addHandler(handler)
 
 
-class GlobalClusterCache:
+class GlobalClusterCache(object):
     """Class that acts as a cohesion of Clusters and Users.
         This is a singleton class, and acts as single source of truth for
         all the cluster entities
@@ -65,63 +65,65 @@ class GlobalClusterCache:
     user_obj_list = []
 
     def __new__(cls, *args, **kwargs):
-        if cls._g_cluster_mgr_instance is None:
+        if not cls._g_cluster_mgr_instance:
             with cls._g_cmgr_lock:
-                if cls._g_cluster_mgr_instance is None:
-                    cls._g_cluster_mgr_instance = super().__new__(cls)
+                if not cls._g_cluster_mgr_instance:
+                    cls._g_cluster_mgr_instance = super(GlobalClusterCache, cls).__new__(cls)
         return cls._g_cluster_mgr_instance
 
     def __init__(self, cluster_list=None, user_list=None, cache_clusters=True):
         """Parse and process raw list of clusters and users JSON
             Builds Users cache -> Builds Cluster cache -> Maps CVMs and the Users
         """
-        start_time = time.time()
-        # Triggers the caching process
-        if cluster_list:
-            for e_cl in cluster_list:
-                cluster_obj = Cluster(e_cl["name"], e_cl.get("ip"), e_cl["user"],
-                                      e_cl["password"])
-                self.cluster_obj_list.append(cluster_obj)
-        if user_list:
-            for e_usr in user_list:
-                user_obj = User(e_usr)
-                self.user_obj_list.append(user_obj)
-        for ii in alc:
-            self.USER_PREFIX_EMAIL_MAP[ii] = {}
+        if not getattr(self, '_initialized', False):
+            start_time = time.time()
+            # Triggers the caching process
+            if cluster_list:
+                for e_cl in cluster_list:
+                    cluster_obj = Cluster(e_cl["name"], e_cl.get("ip"), e_cl["user"],
+                                        e_cl["password"])
+                    self.cluster_obj_list.append(cluster_obj)
+            if user_list:
+                for e_usr in user_list:
+                    user_obj = User(e_usr)
+                    self.user_obj_list.append(user_obj)
+            for ii in alc:
+                self.USER_PREFIX_EMAIL_MAP[ii] = {}
 
-        self.current_user_vm_map = {}
-        self.old_user_vm_map = {}
+            self.current_user_vm_map = {}
+            self.old_user_vm_map = {}
 
-        # List of all the VMs which do not match any prefix
-        # We will send a notification for this.
-        # TODO Store it in the time-series database to get the diff in easy
-        # way for the time schedule
-        self.timed_offenses = OrderedDict()
-        print("Building user cache")
-        self._build_user_cache()
-        print("Building user cache DONE")
-        print("Building cluster cache")
-        # if cache_clusters:
-        self._caching_thread = threading.Thread(target=self.rebuild_cache,
-                                                kwargs={'all_clusters': True,
-                                                        'cluster_name': None,
-                                                        'initial_build': True})
-        # self._caching_thread.daemon = True
-        self._caching_thread.start()
-        # FIXME
-        self._caching_thread.join()
+            # List of all the VMs which do not match any prefix
+            # We will send a notification for this.
+            # TODO Store it in the time-series database to get the diff in easy
+            # way for the time schedule
+            self.timed_offenses = OrderedDict()
+            print("Building user cache")
+            self._build_user_cache()
+            print("Building user cache DONE")
+            print("Building cluster cache")
+            # if cache_clusters:
+            self._caching_thread = threading.Thread(target=self.rebuild_cache,
+                                                    kwargs={'all_clusters': True,
+                                                            'cluster_name': None,
+                                                            'initial_build': True})
+            # self._caching_thread.daemon = True
+            self._caching_thread.start()
+            # FIXME
+            self._caching_thread.join()
 
-        print("Clusters cache build done.")
-        global_total_vms = 0
-        for cname, cobj in self.GLOBAL_CLUSTER_CACHE.items():
-            running, stopped, templated = cobj.get_vm_list()
-            total_now = len(running) + len(stopped) + len(templated)
-            global_total_vms += total_now
-            print(f"\tTracking {total_now} VMs on the cluster '{cname}'")
-        if self.cluster_obj_list and self.user_obj_list:
-            print(f"Cached {len(self.cluster_obj_list)} clusters, {len(self.user_obj_list)} users "
-                  f"and processed {global_total_vms} VMs in {time.time() - start_time:<.3f}"
-                  " seconds")
+            print("Clusters cache build done.")
+            global_total_vms = 0
+            for cname, cobj in self.GLOBAL_CLUSTER_CACHE.items():
+                running, stopped, templated = cobj.get_vm_list()
+                total_now = len(running) + len(stopped) + len(templated)
+                global_total_vms += total_now
+                print(f"\tTracking {total_now} VMs on the cluster '{cname}'")
+            if self.cluster_obj_list and self.user_obj_list:
+                print(f"Cached {len(self.cluster_obj_list)} clusters, {len(self.user_obj_list)} users "
+                    f"and processed {global_total_vms} VMs in {time.time() - start_time:<.3f}"
+                    " seconds")
+            self._initialized = True
         
     # Functions related to summarizing the CacheState
     def summary(self, print_summary=False) -> typing.Optional[typing.Dict]:
@@ -391,6 +393,9 @@ class GlobalClusterCache:
                             GLOBAL_MGR_LOGGER.debug(f"Cluster {cluster_name} - "
                                                     f"No prefix matched for the "
                                                     f"VM {vm_obj.name}")
+                    else:
+                        user_obj = self.GLOBAL_USER_CACHE[vm_obj.owner_email]
+                        user_obj.update_vm_resources(vm_obj.to_json())
                 for uuid, vm_obj in cluster_obj.power_off_vms.items():
                     if vm_obj.owner == None:
                         # Get the bucket key

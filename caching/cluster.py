@@ -32,7 +32,7 @@ urllib3.disable_warnings()
 # Setting up the logging
 CLUSTER_CACHE_LOGGER_ = logging.getLogger(__name__)
 CLUSTER_CACHE_LOGGER_.setLevel(logging.DEBUG)
-handler = logging.FileHandler("cmgr_cluster.log", mode='w')
+handler = logging.FileHandler("cmgr_cluster.log", mode='a')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 CLUSTER_CACHE_LOGGER_.addHandler(handler)
@@ -342,8 +342,20 @@ class Cluster:
                     if uuid in self.vm_cache:
                         if uuid in self.vms_added_since_last_cache_build:
                             self.vms_added_since_last_cache_build.remove(uuid)
+                        vm_obj = self.vm_cache[uuid]
                         # Since the NIC config and the IP can change, just update it
-                        self.vm_cache[uuid].nics = vm_config.get('vm_nics', [])
+                        vm_obj.nics = vm_config.get('vm_nics', [])
+                        if (vm_obj.cores_used_per_vcpu != vm_config.get("num_cores_per_vcpu") or vm_obj.num_vcpu != vm_config.get("num_vcpus")):
+                            CLUSTER_CACHE_LOGGER_.info(f"VM {vm_obj.name}, cores_per_vcpu: {vm_obj.cores_used_per_vcpu} -> {vm_config.get("num_cores_per_vcpu")}; num_vcpu: {vm_obj.num_vcpu} -> {vm_config.get("num_vcpus")}")
+                            core_diff = (vm_config.get("num_cores_per_vcpu") * vm_config.get("num_vcpus")) - (vm_obj.cores_used_per_vcpu*vm_obj.num_vcpu)
+                            vm_obj.cores_used_per_vcpu = vm_config.get("num_cores_per_vcpu")
+                            vm_obj.num_vcpu = vm_config.get("num_vcpus")
+                            self.utilized_resources[ClusterKeys.CORES] += core_diff
+                        if vm_obj.memory != vm_config.get("memory_mb"):
+                            CLUSTER_CACHE_LOGGER_.info(f"VM {vm_obj.name}, Memory: {vm_obj.memory} -> {vm_config.get("memory_mb")}")
+                            mem_diff = vm_config.get("memory_mb") - vm_obj.memory
+                            vm_obj.memory = vm_config.get("memory_mb")
+                            self.utilized_resources[ClusterKeys.MEMORY] += mem_diff
                         continue
                     # If the VM is a new VM altogether
                     else:
@@ -357,7 +369,7 @@ class Cluster:
                         CLUSTER_CACHE_LOGGER_.debug(f"Added VM {vm_config['name']}"
                                                     f" to the cache")
                         self.vms_added_since_last_cache_build.add(uuid)
-                # If the VM is turned OFF
+                # If the VM is now turned OFF
                 else:
                     # If it was previously running, update the resources
                     # used for the cluster and the resource used per user

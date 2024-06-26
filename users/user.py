@@ -147,18 +147,7 @@ class User:
     def _back_populate_vm_resources(self, vm_uuid, parent_cluster_name,
                                     mem_diff, cores_diff, power_state=PowerState.OFF):
         with self.resources_lock:
-            # If it is a new VM
-            if vm_uuid not in self.vm_resource_tracker:
-                self.vm_resource_tracker[vm_uuid] = {
-                    RES.CORES: 0,
-                    RES.MEMORY: 0,
-                    "parent_cluster": parent_cluster_name,
-                    "power_state": power_state}
-                USER_LOGGER_.debug(f"{self.email} - New VM {vm_uuid} being tracked.")
-
-            USER_LOGGER_.debug(f"VM - {self.email} - " + vm_uuid +
-                               f": {self.vm_resource_tracker[vm_uuid]}")
-
+            # Any new VM is added before calling this function
             # If it is a new cluster
             if parent_cluster_name not in self.cluster_resource_tracker:
                 self.cluster_resource_tracker[parent_cluster_name] = {RES.CORES: 0, RES.MEMORY: 0}
@@ -253,6 +242,7 @@ class User:
                     "name": name,
                     "power_state": new_power_state
                 }
+                USER_LOGGER_.debug(f"{self.email} - New VM {uuid} being tracked.")
 
                 if new_power_state == PowerState.ON:
                     # The resources will be updated in _update_all_resources

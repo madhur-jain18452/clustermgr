@@ -20,8 +20,6 @@ from common.constants import ONE_DAY_IN_SECS, UserKeys, Resources as res
 from cluster_manager.global_cluster_cache import GlobalClusterCache
 from custom_exceptions.exceptions import SameTimestampError
 
-global_cache = GlobalClusterCache()
-
 cm_logger = logging.getLogger(__name__)
 cm_logger.setLevel(logging.DEBUG)
 handler = logging.FileHandler("cmgr_cluster_monitor.log", mode='w')
@@ -62,6 +60,7 @@ class ClusterMonitor:
                 new_timestamp
                 timediff
         """
+        global_cache = GlobalClusterCache()
         continued_offenses = {}
         if new_timestamp is None:
             new_timestamp = int(time.time())
@@ -198,6 +197,7 @@ class ClusterMonitor:
                             if gl_mem_util <= 0:
                                 return cl_core_util, cl_mem_util, gl_core_util, gl_mem_util
 
+        global_cache = GlobalClusterCache()
         current_time = time.time()
         first_action_run = float(os.environ.get("first_action_run"))
         # if current_time < first_action_run:

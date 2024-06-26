@@ -16,17 +16,17 @@ from cluster_manager.global_cluster_cache import GlobalClusterCache
 
 user_blue_print = Blueprint('user', __name__)
 
-global_cache = GlobalClusterCache()
-
 
 @user_blue_print.route("/users", methods=[HTTPMethod.GET])
 def list_users():
+    global_cache = GlobalClusterCache()
     return jsonify(global_cache.get_users()), HTTPStatus.OK
 
 
 @user_blue_print.route("/users/<email>", methods=[HTTPMethod.POST,
                                                   HTTPMethod.PATCH])
 def add_update_user(email):
+    global_cache = GlobalClusterCache()
     request_args = json.loads(request.get_json())
     # Parse the comma-sep prefix list and clean
     if request.method == HTTPMethod.POST:
@@ -91,6 +91,7 @@ def add_update_user(email):
 
 @user_blue_print.route("/users/<email>/vms", methods=[HTTPMethod.GET])
 def list_user_vms(email):
+    global_cache = GlobalClusterCache()
     cname = request.args.get('cluster')
     vm_list, status = global_cache.get_all_vms_for_user(email, cname)
     return jsonify(vm_list), status

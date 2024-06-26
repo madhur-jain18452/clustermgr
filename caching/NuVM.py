@@ -26,7 +26,7 @@ from tools.helper import convert_mb_to_gb
 urllib3.disable_warnings()
 NUVM_CACHE_LOGGER_ = logging.getLogger(__name__)
 NUVM_CACHE_LOGGER_.setLevel(logging.DEBUG)
-handler = logging.FileHandler(f"cmgr_NuVM.log", mode='w')
+handler = logging.FileHandler(f"cmgr_NuVM.log", mode='a')
 formatter = logging.Formatter("%(name)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 NUVM_CACHE_LOGGER_.addHandler(handler)
@@ -82,7 +82,7 @@ class NuVM:
             if self.nics and "ip_address" in self.nics[0] else None
         self._threadpool = futures.ThreadPoolExecutor(max_workers=5)
 
-        # Resource utilization tracking for the managed DBServers
+        # FUTURE Resource utilization tracking for the managed DBServers
         self.owner = None
         self.owner_email = None
         self.managed_resources = {}
