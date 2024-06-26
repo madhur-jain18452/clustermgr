@@ -37,14 +37,15 @@ def verify_config(config, required_params, filename):
                     f"{json.dumps(conf_item, indent=2)}")
 
 
-"""Maps common time units to their strings and factor to convert to
+"""
+    Maps common time units to their strings used in Task Manager and factor to convert to
     multiples of a second
 """
-str_to_time_unit_map = {
+STR_TO_TIME_UNIT_MAP = {
     's': ('seconds', 1),
     'm': ('minutes', 60),
     'h': ('hour', 60*60),
-    'd': ('day_time', 24*60*60)
+    'd': ('day', 24*60*60)
 }
 
 
@@ -52,8 +53,22 @@ def parse_freq_str_to_json(frequency_str) -> dict:
     """Converts the frequency string to a JSON which stores these values
     """
     str_to_check = frequency_str.strip()
-    if str_to_check[-1].lower() in str_to_time_unit_map:
-        freq_unit = str_to_time_unit_map[str_to_check[-1].lower()][0]
+    # Special case to handle something that needs to run every day at a specific time:
+    if str_to_check[0].startswith("@"):
+        time_str = str_to_check[1:]
+        # Only accept cases where the string is like 530 or 1730
+        if len(time_str) not in [3, 4]:
+            raise ValueError(f"The string {str_to_check} is invalid. Please provide 24-hour format string.")
+        at_minutes = time_str[-2:]
+        at_hour = time_str[:-2]
+        if not (int(at_minutes) >= 0 and int(at_minutes) < 60):
+            raise ValueError(f"The string {str_to_check} is invalid. Please check again.")
+        if not (int(at_hour) >= 0 and int(at_hour) < 24):
+            raise ValueError(f"The string {str_to_check} is invalid. Please check again.")
+        return {"day_time": f"{at_hour}:{at_minutes}"}
+
+    if str_to_check[-1].lower() in STR_TO_TIME_UNIT_MAP:
+        freq_unit = STR_TO_TIME_UNIT_MAP[str_to_check[-1].lower()][0]
         try:
             freq_val = int(frequency_str[0:-1])
         except ValueError as ve:
@@ -63,14 +78,15 @@ def parse_freq_str_to_json(frequency_str) -> dict:
     return {freq_unit: freq_val}
 
 
-def convert_freq_str_to_seconds(frequency_str) -> float:
-    """Converts the frequency string to number of seconds
-        """
-    str_to_check = frequency_str.strip()
-    if str_to_check[-1].lower() in str_to_time_unit_map:
+def convert_freq_str_to_seconds(time_str) -> float:
+    """Converts the time string to number of seconds
+    E.g. 1d -> 1 day -> 86400 seconds
+    """
+    str_to_check = time_str.strip()
+    if str_to_check[-1].lower() in STR_TO_TIME_UNIT_MAP:
         try:
-            freq_val = int(frequency_str[0:-1])
-            return freq_val * str_to_time_unit_map[str_to_check[-1].lower()][1]
+            freq_val = int(time_str[0:-1])
+            return freq_val * STR_TO_TIME_UNIT_MAP[str_to_check[-1].lower()][1]
         except ValueError as ve:
             raise f"Invalid time frequency string {str_to_check} received. Exception: {ve}"
     raise f"Invalid time frequency string {str_to_check} received."

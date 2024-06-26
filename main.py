@@ -76,48 +76,31 @@ if __name__ == "__main__":
     )
     parser.add_argument('cluster_config', help="File containing the cluster configuration. Can be JSON or YAML")
     parser.add_argument('user_config', help="File containing the user configuration. Can be JSON or YAML")
-    parser.add_argument('--port', '-p', default=5000, type=int, help="Port to run the server on")
+    # parser.add_argument('--port', '-p', default=5000, type=int, help="Port to run the server on")
     parser.add_argument('--debug', '-d', action='store_true', help="Run the server in the debug mode")
     parser.add_argument('--run-cache-refresh', '-r', type=str, default='2m', help="Frequency to run the cache rebuild. Pass the value in the form 2m, 2h, 1d, etc.")
+    parser.add_argument('--mail-frequency', '-m', type=str, default='@1000', help="Frequency to mail the offending Users. To run it at a specific time per day, pass '@[time_of_day_24hours_format]'. Default: Once per day at 10:00 AM.")
+    parser.add_argument('--action-frequency', '-a', type=str, default='@1700', help="Frequency to take action on the offending Users. To run it at a specific time per day, pass '@[time_of_day_24hours_format]'. Default: Once per day at 05:00 PM.")
     parser.add_argument('--offense-refresh', '-o', type=str, default='3m', help="Frequency to calculate and retain the offending users")
-    parser.add_argument('--mail-frequency', '-m', type=str, default='1h', help="Frequency to take action on the offending Users. Pass the value in the form 2m, 2h, 1d, etc. Default: Once per day")
-    parser.add_argument('--action-frequency', '-a', type=str, default='1h', help="Frequency to take action on the offending Users. Pass the value in the form 2m, 2h, 1d, etc. Default: Once per day")
-    parser.add_argument('--retain-offense', type=str, default='7h', help="Frequency to take action on the offending Users. Pass the value in the form 2m, 2h, 1d, etc. Default: Once per day")
+    parser.add_argument('--retain-offense', type=str, default='7d', help="Time for which to store the offenses. Default is 7 days")
+    parser.add_argument('--offense-checkback', '-c', type=str, default='2d', help="How far back should the sustained offenses be checked. Default is 2 days -- Checks the offenses that have been there since two days")
+    parser.add_argument('--eval', action='store_true', help="Run the tool in Eval mode (does not power-off or remove NIC from the VM")
     args = parser.parse_args()
-    # global gcc
-    # if len(sys.argv) != 3:
-    #     print("Usage: python3 main.py <cluster.yaml|JSON> <userlist.yaml|JSON>")
-    #     sys.exit(1)
-
+    
     cluster_config, user_config = verify_and_parse_config(args.cluster_config, args.user_config)
     print(f"Cluster and User configuration check successful. Tracking "
           f"{len(cluster_config["clusters"])} clusters and "
           f"{len(user_config["users"])} users")
 
     global_cache = GlobalClusterCache(cluster_config["clusters"], user_config["users"])
-
-    # offending_items = global_cache.get_offending_items(print_summary=True,
-    #                                                    get_users_over_util=True,
-    #                                                    get_vm_resources_per_cluster=True,
-    #                                                    include_vm_without_prefix=True)
-    # if offending_items:
-    #     user_offenses, vm_resources, vms_without_prefix = offending_items
-    #     print(f"User offenses: {json.dumps(user_offenses, indent=4)}")
-    #     print(f"VM Resources: {json.dumps(vm_resources, indent=4)}")
-    #     print(f"VM without prefixes: {json.dumps(vms_without_prefix, indent=4)}")
-    # else:
-    #     print("No offending items received!")
+    cluster_monitor = ClusterMonitor()
     tm = TaskManager()
 
-    print("Adding repeated tasks to the TaskManager")
+    # print("Adding repeated tasks to the TaskManager")
     ref_freq = parse_freq_str_to_json(args.run_cache_refresh)
     tm.add_repeated_task(global_cache, "rebuild_cache", ref_freq,
                          task_name="Refreshing cluster cache")
-    
-    # tm.add_repeated_task(global_cache, "rebuild_cache", ref_freq,
-                        #  task_name="Refreshing cluster cache")
 
-    cluster_monitor = ClusterMonitor()
     global_cache.get_offending_items(get_vm_resources_per_cluster=True,
                                      retain_diff=True)
     kwargs = {'get_vm_resources_per_cluster': True, 'retain_diff': True}
@@ -132,29 +115,53 @@ if __name__ == "__main__":
     #                                  retain_diff=True)
 
     # cluster_monitor.calculate_continued_offenses()
-    
+    if args.eval:
+        os.environ.setdefault('eval_mode', 'True')
+    else:
+        os.environ.setdefault('eval_mode', 'False')
+
+    if args.offense_checkback:
+        number_of_secs = convert_freq_str_to_seconds(args.offense_checkback)
+        print(f"Calculating the offenses sustained from last {number_of_secs} sec.")
+        os.environ.setdefault('offense_checkback', str(number_of_secs))
     """
     make the first run of the action 2 times time after the mails are done.
     For e.g., if the mail is sent every 3 hours, first run of action will be done after 6 hours, and then the frequency will take effect/
     """
-    mail_frequency = parse_freq_str_to_json(args.mail_frequency)
-    tm.add_repeated_task(cluster_monitor, "send_warning_emails", mail_frequency,
-                         task_name="Send Warning Emails")
-
-    first_mailing = time.time() + convert_freq_str_to_seconds(args.mail_frequency)
-    print(f"Will send the warning mails starting at {datetime.fromtimestamp(first_mailing)} with frequency: {mail_frequency}")
+    first_mailing = None
+    if args.mail_frequency.startswith("@"):
+        mail_frequency = parse_freq_str_to_json(args.mail_frequency)
+        tm.add_repeated_task(cluster_monitor, "send_warning_emails", mail_frequency,
+                             task_name="Send Warning Emails")
+        print(f"Will send first warning mail at {mail_frequency['day_time']} and then every day.")
+    else:
+        mail_frequency = parse_freq_str_to_json(args.mail_frequency)
+        tm.add_repeated_task(cluster_monitor, "send_warning_emails", mail_frequency,
+                             task_name="Send Warning Emails")
+        first_mailing = time.time() + convert_freq_str_to_seconds(args.mail_frequency)
+        print(f"Will send the warning mails starting at {datetime.fromtimestamp(first_mailing)} with frequency: {mail_frequency}")
     
-    first_action_run = first_mailing + convert_freq_str_to_seconds(args.mail_frequency)
-    os.environ.setdefault("first_action_run", str(first_action_run))
-    action_frequency = parse_freq_str_to_json(args.action_frequency)
-    print(f"Will take action on the continued offenses at {datetime.fromtimestamp(first_action_run)} with frequency: {action_frequency}")
-    tm.add_repeated_task(cluster_monitor, "take_action_offenses", action_frequency,
+    if args.action_frequency.startswith("@"):
+        parsed_time = parse_freq_str_to_json(args.action_frequency)
+        # TODO Still need to have it run the next day after sending mail
+        tm.add_repeated_task(cluster_monitor, "take_action_offenses", parsed_time,
                          task_name="Take action on user offenses")
+        print(f"Will take action on the continued offenses at every day at {parsed_time['day_time']}")
+    else:
+        first_action_run = first_mailing + convert_freq_str_to_seconds(args.mail_frequency)
+        os.environ.setdefault("first_action_run", str(first_action_run))
+        action_frequency = parse_freq_str_to_json(args.action_frequency)
+        print(f"Will take action on the continued offenses at {datetime.fromtimestamp(first_action_run)} with frequency: {action_frequency}")
+        tm.add_repeated_task(cluster_monitor, "take_action_offenses", action_frequency,
+                             task_name="Take action on user offenses")
 
     retain_in_sec = convert_freq_str_to_seconds(args.retain_offense)
+    print(f"\nRetaining the offenses for {args.retain_offense}: {retain_in_sec} secs")
+    off_refresh = convert_freq_str_to_seconds(args.offense_refresh)
+    print(f"\nRefreshing the offenses every {args.offense_refresh}: {off_refresh} secs")
     import math
-    # length_to_retain = math.ceil(retain_in_sec / convert_freq_str_to_seconds(args.offense_refresh)) + 1
-    length_to_retain = 5
+    length_to_retain = math.ceil(retain_in_sec / off_refresh) + 1
+    # length_to_retain = 5
     print(f"setting the cache to retain {length_to_retain} timestamps")
     os.environ.setdefault('offense_cache_retain', str(length_to_retain))
     # while True:
@@ -163,4 +170,4 @@ if __name__ == "__main__":
     tm.start_task_runner()
     print("Task manager started!")
 
-    flask_cluster_mgr_app.run(host='0.0.0.0', port=args.port, debug=args.debug)
+    flask_cluster_mgr_app.run(host='0.0.0.0', port=5000, debug=args.debug)

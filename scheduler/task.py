@@ -63,15 +63,16 @@ class TaskManager:
             kwargs: Key-word args to be passed to this task
         """
         tname = method_name.__name__ if task_name is None else task_name
-        print(f"RECEIVED {tname} for running continuously")
+        # print(f"RECEIVED {tname} for running continuously")
 
         # Periodic tasks -- run "every" X time-interval
-        seconds = job_schedule_args.get("seconds", None)
-        minutes = job_schedule_args.get("minutes", None)
-        hour = job_schedule_args.get("hour", None)
-        day_time = job_schedule_args.get("day_time", None)
+        seconds = job_schedule_args.get("seconds")
+        minutes = job_schedule_args.get("minutes")
+        hour = job_schedule_args.get("hour")
+        day = job_schedule_args.get("day")
+        day_time = job_schedule_args.get("day_time")
 
-        populated_fields = sum([1 for value in [seconds, minutes, hour, day_time]
+        populated_fields = sum([1 for value in [seconds, minutes, hour, day, day_time]
                                 if value is not None])
         if populated_fields != 1:
             raise Exception(f"Expected exactly one field to be populated"
@@ -85,11 +86,16 @@ class TaskManager:
             self.schedule.every(minutes).minutes.do(class_fn, *args, **kwargs)
         elif hour:
             self.schedule.every(hour).hour.do(class_fn, *args, **kwargs)
+        elif day:
+            self.schedule.every(day).day.do(class_fn, *args, **kwargs)
         elif day_time:
             self.schedule.every().day.at(day_time).do(class_fn, *args, **kwargs)
 
-        task_info = f"{minutes} minutes" if minutes else f"{hour} hour"\
-            if hour else f"{seconds} seconds" if seconds else "day at time: {}".format(day_time)
+        if day_time:
+            task_info = f"day at time: {day_time}"
+        else:
+            task_info = f"{minutes} minutes" if minutes else f"{hour} hour"\
+                        if hour else f"{seconds} seconds" if seconds else "{} day".format(day)
         print(f"Added repeated task '{tname}' to run every "
               f"{task_info}")
 

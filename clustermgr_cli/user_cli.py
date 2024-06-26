@@ -154,6 +154,10 @@ def list_vms(email, resources, cluster):
                    f"{f'or cluster with name {cluster}' if cluster else ''}"
                     "not found in the cache. Please recheck.")
         return
+
+    cores_consumed = 0
+    memory_consumed = 0
+
     res_json = res.json()
     columns = ["Sr. No.", "VM Name", "UUID", "Cluster", "Status"]
     if resources:
@@ -163,9 +167,13 @@ def list_vms(email, resources, cluster):
     for vm_info in res_json:
         data = [sr_no, vm_info['name'], vm_info['uuid'], vm_info['parent_cluster'], "RUNNING" if vm_info['power_state'] == PowerState.ON else "STOPPED"]
         if resources:
+            if vm_info['power_state'] == PowerState.ON:
+                cores_consumed += vm_info['cores']
+                memory_consumed += convert_mb_to_gb(vm_info['memory'])
             data.extend([vm_info['cores'], convert_mb_to_gb(vm_info['memory'])])
         pt.add_row(data)
         sr_no += 1
     click.echo(f"List of VMs for the user {email} {'on ' + cluster if cluster else ''}: ")
     click.echo(pt)
+    click.echo(f"\nTotal cores consumed  : {cores_consumed}\nTotal Memory consumed : {memory_consumed} GB")
 

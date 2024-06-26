@@ -199,17 +199,28 @@ class ClusterMonitor:
 
         global_cache = GlobalClusterCache()
         current_time = time.time()
-        first_action_run = float(os.environ.get("first_action_run"))
-        # if current_time < first_action_run:
-        #     cm_logger.info(f"Triggered action at {datetime.fromtimestamp(current_time)}. "
-        #                    f"First should not start before "
-        #                    f"{datetime.fromtimestamp(first_action_run)}")
-        #     return
+        # If the first_action_run is set, honor that, else this is a task that runs at X time per day
+        first_action_run = os.environ.get("first_action_run")
+        if first_action_run is None:
+            pass
+        else:
+            # if current_time < first_action_run:
+            #     cm_logger.info(f"Triggered action at {datetime.fromtimestamp(current_time)}. "
+            #                 f"First should not start before "
+            #                 f"{datetime.fromtimestamp(first_action_run)}")
+            #     return
+            pass
         # TODO How far back should I check for the offenses?
-        start_time = current_time - ONE_DAY_IN_SECS
-        continued_offenses, actual_old_ts, actual_new_ts = \
+        checkback_seconds = os.environ.get("offense_checkback", str(ONE_DAY_IN_SECS))
+        start_time = current_time - int(checkback_seconds)
+        offenses = \
             self._calculate_continued_offenses(from_timestamp=start_time,
                                                new_timestamp=current_time)
+        if offenses:
+            continued_offenses, actual_old_ts, actual_new_ts = offenses
+        else:
+            cm_logger.error("No offenses could be calculated.")
+            return
         # if actual_new_ts - actual_old_ts < ONE_DAY_IN_SECS:
         #     cm_logger.error(f"Diff between the new and old TS is less than the set value of {ONE_DAY_IN_SECS}")
         #     return
@@ -302,25 +313,26 @@ class ClusterMonitor:
         # We have all the VMs that need to be powered off in the cluster.
         # Perform actual power-off and NIC removal.
         # BACKLOG: Can do multi-threaded
-        # for vm_uuid, cname in vm_uuids_to_turn_off:
-        #     po_status, po_msg = global_cache.perform_cluster_vm_power_change(
-        #         cluster_name=cname, vm_info={'uuid': vm_uuid}
-        #     )
-        #     if po_status == HTTPStatus.OK:
-        #         cm_logger.info(f"PowerOFF:SUCC Cluster {cname}, VM UUID: {vm_uuid}"
-        #                        f". Attempting NIC Removal.")
-        #         nic_status, nic_msg = global_cache.perform_cluster_vm_nic_remove(
-        #             cluster_name=cname, vm_info={'uuid': vm_uuid}
-        #         )
-        #         if nic_status == HTTPStatus.OK:
-        #             cm_logger.info(f"PowerOFF:SUCC RemoveNIC:SUCC Cluster "
-        #                            f"{cname}, VM UUID: {vm_uuid}")
-        #         else:
-        #             cm_logger.warning(f"PowerOFF:SUCC RemoveNIC:FAIL Cluster "
-        #                               f"{cname}, VM UUID: {vm_uuid}. Error: "
-        #                               f"{nic_msg['message']}")
-        #     else:
-        #         cm_logger.error(f"PowerOFF:FAIL RemoveNIC:-NA- Cluster "
-        #                         f"{cname}, VM UUID: {vm_uuid}. Error: "
-        #                         f"{po_msg['message']}")
+        if os.environ.get('eval_mode', "False").lower() not in ['true', 'yes']:
+            for vm_uuid, cname in vm_uuids_to_turn_off:
+                po_status, po_msg = global_cache.perform_cluster_vm_power_change(
+                    cluster_name=cname, vm_info={'uuid': vm_uuid}
+                )
+                if po_status == HTTPStatus.OK:
+                    cm_logger.info(f"PowerOFF:SUCC Cluster {cname}, VM UUID: {vm_uuid}"
+                                f". Attempting NIC Removal.")
+                    nic_status, nic_msg = global_cache.perform_cluster_vm_nic_remove(
+                        cluster_name=cname, vm_info={'uuid': vm_uuid}
+                    )
+                    if nic_status == HTTPStatus.OK:
+                        cm_logger.info(f"PowerOFF:SUCC RemoveNIC:SUCC Cluster "
+                                    f"{cname}, VM UUID: {vm_uuid}")
+                    else:
+                        cm_logger.warning(f"PowerOFF:SUCC RemoveNIC:FAIL Cluster "
+                                        f"{cname}, VM UUID: {vm_uuid}. Error: "
+                                        f"{nic_msg['message']}")
+                else:
+                    cm_logger.error(f"PowerOFF:FAIL RemoveNIC:-NA- Cluster "
+                                    f"{cname}, VM UUID: {vm_uuid}. Error: "
+                                    f"{po_msg['message']}")
 
