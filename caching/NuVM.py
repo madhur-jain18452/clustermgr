@@ -94,7 +94,8 @@ class NuVM:
         self.power_state = self._config.get("power_state", PowerState.OFF)
         self.name = self._config["name"]
         self.uuid = self._config["uuid"]
-        self.host_uuid = self._config.get("host_uuid", None) #  Powered OFF VMs do not have a host UUID
+        #  Powered OFF VMs do not have a host UUID
+        self.host_uuid = self._config.get("host_uuid", None)
 
         # Resources used by the VM itself
         self.cores_used_per_vcpu = self._config["num_cores_per_vcpu"]
@@ -114,7 +115,9 @@ class NuVM:
         if self._ip_address:
             # TODO Out of all assigned IPs, check which IPs are actually usable
             pass
-        NUVM_CACHE_LOGGER_.debug(f"Added VM {self.name[:30]:30}, parent cluster {self._parent_cluster}, UUID {self.uuid} to the cache")
+        NUVM_CACHE_LOGGER_.debug(f"Added VM {self.name[:30]:30},"
+                                 f" parent cluster {self._parent_cluster},"
+                                 f" UUID {self.uuid} to the cache")
 
     def refresh_https_conn(self):
         pass
@@ -164,7 +167,10 @@ class NuVM:
                     # Try contact the ERA endpoint for that VM
                     # TODO check with all possible combinations of username and pass
                     res = requests.get(HTTPS + self._ip_address + '/era/v0.9/dbservers',
-                                       headers={'Authorization': f'Basic {basic_auth_header("admin", "Nutanix.1")}'},
+                                       headers={'Authorization': f'Basic '
+                                                                 f'{basic_auth_header(
+                                                                     "admin",
+                                                                     "Nutanix.1")}'},
                                        verify=False, timeout=2
                                        )
                     NUVM_CACHE_LOGGER_.debug("IP: {}, Status: {}".format(
@@ -182,7 +188,7 @@ class NuVM:
                         self.is_ndb_cvm = True
 
                         # If the connection was successful, add the DB Server VMs
-                        # Since ERA server is not SPOT, we dont rely on it
+                        # Since ERA server is not SPOT, we don't rely on it
                         if res.status_code in [HTTPStatus.OK, HTTPStatus.ACCEPTED]:
                             for each_dict in res.json():
                                 self.managed_db_vm_list.add(each_dict["name"])

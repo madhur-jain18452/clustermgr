@@ -120,9 +120,10 @@ class GlobalClusterCache(object):
                 global_total_vms += total_now
                 print(f"\tTracking {total_now} VMs on the cluster '{cname}'")
             if self.cluster_obj_list and self.user_obj_list:
-                print(f"Cached {len(self.cluster_obj_list)} clusters, {len(self.user_obj_list)} users "
-                    f"and processed {global_total_vms} VMs in {time.time() - start_time:<.3f}"
-                    " seconds")
+                print(f"Cached {len(self.cluster_obj_list)} clusters, "
+                      f"{len(self.user_obj_list)} users "
+                      f"and processed {global_total_vms} VMs in {time.time() - start_time:<.3f}"
+                      " seconds")
             self._initialized = True
         
     # Functions related to summarizing the CacheState
@@ -453,7 +454,8 @@ class GlobalClusterCache(object):
                             GLOBAL_MGR_LOGGER.exception(ex)
                             raise ex
                     else:
-                        GLOBAL_MGR_LOGGER.debug(f"VM with UUID {each_deleted_vm_uuid} is not yet tracked by any cluster.")
+                        GLOBAL_MGR_LOGGER.debug(f"VM with UUID {each_deleted_vm_uuid} "
+                                                f"is not yet tracked by any cluster.")
         self.old_user_vm_map = deepcopy(self.current_user_vm_map)
 
     # Functions relating to serving the REST API

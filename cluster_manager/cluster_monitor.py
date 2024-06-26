@@ -101,7 +101,8 @@ class ClusterMonitor:
                     # be the UUID (Names are also fine if they are immutable)
                     if old_v[0]:
                         if old_v[0] is tuple:
-                            common_offenders = set([v[0] for v in old_v]).intersection(set([v[0] for v in new_v]))
+                            common_offenders = set([v[0] for v in old_v]).intersection(
+                                set([v[0] for v in new_v]))
                             # Reconstruct the tuple
                             continued_offenses[k] = [v for v in new_v if v[0] in common_offenders]
                         else:
@@ -249,7 +250,8 @@ class ClusterMonitor:
                     continue
 
                 user_vm_list_this_cluster = _user_json_to_list(user_json, cname)
-                # cm_logger.info(f"VM list for the user {user_email}: {json.dumps(user_vm_list_this_cluster)}")
+                # cm_logger.info(f"VM list for the user {user_email}: "
+                #                f"{json.dumps(user_vm_list_this_cluster)}")
                 cl_over_util_core = resource_info.get('cores', 0)
                 cl_over_util_mem = resource_info.get('memory', 0)
                 # Calculate all the VMs that need to be turned OFF for this cluster util to get under quota
@@ -259,34 +261,39 @@ class ClusterMonitor:
                     sorted_vm_list = sorted(user_vm_list_this_cluster,
                                             key=lambda x: x[res.CORES]+x[res.MEMORY],
                                             reverse=True)
-                    cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem = _mark_vm_power_off_greedy(user_vms_marked_power_off, sorted_vm_list,
-                                              gl_over_util_core, gl_over_util_mem,
-                                              cl_name=cname,
-                                              cl_core_util=cl_over_util_core,
-                                              cl_mem_util=cl_over_util_mem,
-                                              verif_cores=True, verif_mem=True)
+                    cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem =\
+                        _mark_vm_power_off_greedy(user_vms_marked_power_off,
+                                                  sorted_vm_list,
+                                                  gl_over_util_core, gl_over_util_mem,
+                                                  cl_name=cname,
+                                                  cl_core_util=cl_over_util_core,
+                                                  cl_mem_util=cl_over_util_mem,
+                                                  verif_cores=True, verif_mem=True)
                 if cl_over_util_core > 0:
                     cores_sorted_list = sorted(user_vm_list_this_cluster,
                                                key=lambda x: x[res.CORES],
                                                reverse=True)
-                    cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem = _mark_vm_power_off_greedy(user_vms_marked_power_off, cores_sorted_list,
-                                              gl_over_util_core, gl_over_util_mem,
-                                              cl_name=cname,
-                                              cl_core_util=cl_over_util_core,
-                                              cl_mem_util=cl_over_util_mem,
-                                              verif_cores=True, verif_mem=False)
+                    cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem = \
+                        _mark_vm_power_off_greedy(
+                            user_vms_marked_power_off, cores_sorted_list,
+                            gl_over_util_core, gl_over_util_mem,
+                            cl_name=cname, cl_core_util=cl_over_util_core,
+                            cl_mem_util=cl_over_util_mem,
+                            verif_cores=True, verif_mem=False)
                 if cl_over_util_mem > 0:
                     memory_sorted_list = sorted(user_vm_list_this_cluster,
                                                 key=lambda x: x[res.MEMORY],
                                                 reverse=True)
                     # Check how many do we need to turn off (Greedy approach).
                     # If required, can change this algorithm with an IF conditional
-                    cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem = _mark_vm_power_off_greedy(user_vms_marked_power_off, memory_sorted_list,
-                                              gl_over_util_core, gl_over_util_mem,
-                                              cl_name=cname,
-                                              cl_core_util=cl_over_util_core,
-                                              cl_mem_util=cl_over_util_mem,
-                                              verif_cores=False, verif_mem=True)
+                    cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem = \
+                        _mark_vm_power_off_greedy(
+                            user_vms_marked_power_off, memory_sorted_list,
+                            gl_over_util_core, gl_over_util_mem,
+                            cl_name=cname,
+                            cl_core_util=cl_over_util_core,
+                            cl_mem_util=cl_over_util_mem,
+                            verif_cores=False, verif_mem=True)
             # All the clusters are getting under control for this user.
             # Check if the global consumption is under control or not.
             if gl_over_util_core > 0 or gl_over_util_mem > 0:
@@ -297,14 +304,18 @@ class ClusterMonitor:
                 # cm_logger.info(f"All VMs of the user {user_email}: {json.dumps(all_vm_of_user)}")
                 if gl_over_util_core > 0:
                     all_vm_list = sorted(all_vm_of_user, key=lambda x: x[res.CORES], reverse=True)
-                    cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem = _mark_vm_power_off_greedy(user_vms_marked_power_off, all_vm_list,
-                                              gl_over_util_core, gl_over_util_mem,
-                                              verif_cores=True, verif_mem=False)
+                    cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem = \
+                        _mark_vm_power_off_greedy(
+                            user_vms_marked_power_off, all_vm_list,
+                            gl_over_util_core, gl_over_util_mem,
+                            verif_cores=True, verif_mem=False)
                 if gl_over_util_mem > 0:
                     all_vm_list = sorted(all_vm_of_user, key=lambda x: x[res.MEMORY], reverse=True)
-                    cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem = _mark_vm_power_off_greedy(user_vms_marked_power_off, all_vm_list,
-                                              gl_over_util_core, gl_over_util_mem,
-                                              verif_cores=False, verif_mem=True)
+                    cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem =\
+                        _mark_vm_power_off_greedy(
+                            user_vms_marked_power_off, all_vm_list,
+                            gl_over_util_core, gl_over_util_mem,
+                            verif_cores=False, verif_mem=True)
             list_of_vm_uuid_cnames = list(user_vms_marked_power_off)
             cm_logger.info(f"User {user_email}, VMs to shut down: "
                            f"{','.join([f'{vm_set[1]}:{vm_set[0]}'
