@@ -70,6 +70,8 @@ class TaskManager:
             task_name (str | Optional): Human-readable name of the task
             args: Args to be passed to this task
             kwargs: Key-word args to be passed to this task
+        Raises:
+            IntervalError
         """
         tname = method_name.__name__ if task_name is None else task_name
         # print(f"RECEIVED {tname} for running continuously")
@@ -84,9 +86,9 @@ class TaskManager:
         populated_fields = sum([1 for value in [seconds, minutes, hour, n_days, day_time]
                                 if value is not None])
         if populated_fields != 1:
-            raise Exception(f"Expected exactly one field to be populated"
-                            f" out of minutes, hour and day. Received "
-                            f"{populated_fields}")
+            raise schedule.IntervalError("Expected exactly one field to be populated"
+                                         " out of minutes, hour and day. Received "
+                                         f"{populated_fields}")
 
         class_fn = getattr(class_obj, method_name)
         if seconds:
@@ -105,8 +107,8 @@ class TaskManager:
         else:
             task_info = f"{minutes} minutes" if minutes else f"{hour} hour"\
                         if hour else f"{seconds} seconds" if seconds else "{} days".format(n_days)
-        print(f"Added repeated task '{tname}' to run every "
-              f"{task_info}")
+        task_logger.info(f"Added repeated task '{tname}' to run every "
+                         f"{task_info}")
 
     def _run_continuously(self):
         """Used by the class thread for continuous tasks.

@@ -32,7 +32,7 @@ urllib3.disable_warnings()
 # Setting up the logging
 CLUSTER_CACHE_LOGGER_ = logging.getLogger(__name__)
 CLUSTER_CACHE_LOGGER_.setLevel(logging.DEBUG)
-handler = logging.FileHandler("cmgr_cluster.log", mode='a')
+handler = logging.FileHandler("cmgr_cluster.log", mode='w')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 CLUSTER_CACHE_LOGGER_.addHandler(handler)
@@ -110,10 +110,11 @@ class Cluster:
         cores = 0
         status_code, resp_json = self._request_cluster(self.prism_rest_ep + HOSTS_EP)
         for entity in resp_json['entities']:
-            CLUSTER_CACHE_LOGGER_.info(entity)
-                # mem += entity['memory_capacity_in_bytes']
-                # cores += entity['num_cpu_cores'] * entity['num_cpu_threads']
-                # self.hosts.append(entity)
+            pass
+            # CLUSTER_CACHE_LOGGER_.info(entity)
+            # mem += entity['memory_capacity_in_bytes']
+            # cores += entity['num_cpu_cores'] * entity['num_cpu_threads']
+            # self.hosts.append(entity)
         # Stored in Bytes
         self.available_memory = mem
         self.available_cores = cores

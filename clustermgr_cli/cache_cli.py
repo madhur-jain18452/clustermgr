@@ -11,8 +11,8 @@ import click
 import json
 import requests
 
-from prettytable import PrettyTable
 from http import HTTPStatus
+from prettytable import PrettyTable
 from urllib import parse
 
 from .constants import CACHE_EP, LOCAL_ENDPOINT
@@ -92,13 +92,28 @@ def get_offenses(resources, cluster, show_orphan_vms):
                 sr_no += 1
             print(pt)
 
-@cache.command(name="update-ret")
-@click.option("--retain-offense", '-r', is_flag=True, help="Update the count of timestamps that are retained in the system")
-def get_offenses(retain_offense):
-    offense_url = LOCAL_ENDPOINT + CACHE_EP + "/offenses/refresh_rate"
-    args = {}
-    if retain_offense:
-        args['retain_offense'] = retain_offense
-    res = requests.patch(offense_url, json=json.dumps(args))
-    print(res.json()['message'])
+@cache.command(name="refresh")
+def force_refresh_cache():
+    """Force refreshing of cache
+    """
+    refresh_url = LOCAL_ENDPOINT + CACHE_EP + "/refresh"
+    res = None
+    try:
+        res = requests.put(refresh_url, timeout=5)
+    except requests.exceptions.Timeout:
+        click.echo("Timed out. Please check the logs.")
+    if res.status_code == HTTPStatus.OK:
+        click.echo(res.json()['message'])
+
+
+@cache.command(name="update-retention")
+@click.argument("retain_offense", type=int)
+def update_retention_offenses(retain_offense):
+    """Update the number of timestamps stored in the in-mem TSDB
+    """
+    offense_url = LOCAL_ENDPOINT + CACHE_EP + "/offenses/retain"
+    args = {'retain_offense': retain_offense}
+    res = requests.put(offense_url, json=json.dumps(args))
+    # click.echo(res.json()['message'])
+    click.echo(res)
 

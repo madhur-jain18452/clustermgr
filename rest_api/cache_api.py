@@ -15,7 +15,6 @@ from http import HTTPStatus, HTTPMethod
 
 from cluster_manager.global_cluster_cache import GlobalClusterCache,\
     GLOBAL_MGR_LOGGER, DEFAULT_OFFENSE_RETAIN_VALUE
-from helper import parse_freq_str_to_json
 
 cache_blue_print = Blueprint('cache', __name__)
 
@@ -59,16 +58,26 @@ def get_all_offenses():
                         "Clusters are in good shape."}), HTTPStatus.OK
 
 
-@cache_blue_print.route("/cache/offenses/refresh_rate", methods=[HTTPMethod.PATCH])
-def update_refresh_rates():
+@cache_blue_print.route("/cache/refresh", methods=[HTTPMethod.PUT])
+def force_cache_refresh():
+    global_cache = GlobalClusterCache()
+    GLOBAL_MGR_LOGGER.info("Forcing cache refresh.")
+    global_cache.rebuild_cache()
+    return jsonify({"message": "Cache refresh successful."}), HTTPStatus.OK
+
+    
+
+@cache_blue_print.route("/cache/offenses/retain", methods=[HTTPMethod.PUT])
+def update_offesne_retain_count():
+    """Update the count of offenses to retain in the cache."""
     arguments = json.loads(request.json)
     if 'retain_offense' in arguments:
         try:
             new_retain_val = int(arguments['retain_offense'])
-            os.environ['retain_offense'] = str(new_retain_val)
             msg = f"Updated the Offense retention from"\
                   f" {os.environ.get('offense_cache_retain', DEFAULT_OFFENSE_RETAIN_VALUE)} "\
                   f"to {new_retain_val}"
+            os.environ['offense_cache_retain'] = str(new_retain_val)
             GLOBAL_MGR_LOGGER.info(msg)
             return jsonify({'message': msg}), HTTPStatus.OK
         except ValueError:

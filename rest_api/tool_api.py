@@ -13,11 +13,11 @@ from flask import Blueprint, jsonify, request
 from http import HTTPStatus, HTTPMethod
 
 from scheduler.task import TaskManager
-from cluster_manager.constants import CACHE_REBUILD_TASK_TAG, GET_OFFENSES_TASK_TAG,\
+from cluster_manager.constants import CACHE_REBUILD_TASK_TAG, \
+    GET_OFFENSES_TASK_TAG,\
     SEND_WARNING_TASK_TAG, TAKE_ACTION_TASK_TAG
-
-
 from helper import parse_freq_str_to_json
+
 
 tool_blue_print = Blueprint('tool', __name__)
 
