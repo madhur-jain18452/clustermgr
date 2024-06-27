@@ -81,7 +81,7 @@ if __name__ == "__main__":
                                                "configuration. Can be JSON or YAML")
     parser.add_argument('user_config', help="File containing the user "
                                             "configuration. Can be JSON or YAML")
-    # parser.add_argument('--port', '-p', default=5000, type=int, help="Port to run the server on")
+    parser.add_argument('--port', '-p', default=5000, type=int, help="Port to run the server on")
     parser.add_argument('--debug', '-d', action='store_true',
                         help="Run the server in the debug mode")
     parser.add_argument('--run-cache-refresh', '-r', type=str,default='2m',
@@ -98,8 +98,8 @@ if __name__ == "__main__":
                                               "time per day, pass "
                                               "'@[time_of_day_24hours_format]'. "
                                               "Default: Once per day at 05:00 PM.")
-    parser.add_argument('--offense-refresh', '-o', type=str,
-                        default='3m', help="Frequency to calculate and "
+    parser.add_argument('--refresh-offense', '-o', type=str,
+                        default='3h', help="Frequency to calculate and "
                                            "retain the offending users")
     parser.add_argument('--retain-offense', type=str, default='7d',
                         help="Time for which to store the offenses. Default is 7 days")
@@ -115,10 +115,10 @@ if __name__ == "__main__":
     
     cluster_config, user_config = verify_and_parse_config(args.cluster_config, args.user_config)
     print(f"Cluster and User configuration check successful. Tracking "
-          f"{len(cluster_config["clusters"])} clusters and "
-          f"{len(user_config["users"])} users")
+          f"{len(cluster_config['clusters'])} clusters and "
+          f"{len(user_config['users'])} users")
 
-    global_cache = GlobalClusterCache(cluster_config["clusters"], user_config["users"])
+    global_cache = GlobalClusterCache(cluster_config['clusters'], user_config['users'])
     cluster_monitor = ClusterMonitor()
     tm = TaskManager()
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
                                      retain_diff=True)
     kwargs = {'get_vm_resources_per_cluster': True, 'retain_diff': True}
     tm.add_repeated_task(global_cache, "get_offending_items",
-                         parse_freq_str_to_json(args.offense_refresh),
+                         parse_freq_str_to_json(args.refresh_offense),
                          GET_OFFENSES_TASK_TAG,
                          task_name="Populating offenses", **kwargs)
     # c_time = time.time()
@@ -144,8 +144,10 @@ if __name__ == "__main__":
 
     # cluster_monitor.calculate_continued_offenses()
     if args.eval:
+        print("Running in Eval mode")
         os.environ.setdefault('eval_mode', 'True')
     else:
+        print("Running in Prod mode")
         os.environ.setdefault('eval_mode', 'False')
 
     if args.offense_checkback:
@@ -194,8 +196,8 @@ if __name__ == "__main__":
 
     retain_in_sec = convert_freq_str_to_seconds(args.retain_offense)
     print(f"\nRetaining the offenses for {args.retain_offense}: {retain_in_sec} secs")
-    off_refresh = convert_freq_str_to_seconds(args.offense_refresh)
-    print(f"\nRefreshing the offenses every {args.offense_refresh}: {off_refresh} secs")
+    off_refresh = convert_freq_str_to_seconds(args.refresh_offense)
+    print(f"\nRefreshing the offenses every {args.refresh_offense}: {off_refresh} secs")
     import math
     length_to_retain = math.ceil(retain_in_sec / off_refresh) + 1
     # length_to_retain = 5
@@ -207,4 +209,4 @@ if __name__ == "__main__":
     tm.start_task_runner()
     print("Task manager started!")
 
-    flask_cluster_mgr_app.run(host='0.0.0.0', port=5000, debug=args.debug)
+    flask_cluster_mgr_app.run(host='0.0.0.0', port=args.port, debug=args.debug)

@@ -13,7 +13,7 @@ import threading
 import time
 
 task_logger = logging.getLogger(__name__)
-handler = logging.FileHandler(f"cmgr_tasks.log", mode='w')
+handler = logging.FileHandler("cmgr_tasks.log", mode='w')
 formatter = logging.Formatter("%(name)s - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 task_logger.addHandler(handler)
@@ -96,7 +96,7 @@ class TaskManager:
         elif minutes:
             self.schedule.every(minutes).minutes.do(class_fn, *args, **kwargs).tag(tag_val)
         elif hour:
-            self.schedule.every(hour).hour.do(class_fn, *args, **kwargs).tag(tag_val)
+            self.schedule.every(hour).hours.do(class_fn, *args, **kwargs).tag(tag_val)
         elif n_days:
             self.schedule.every(n_days).days.do(class_fn, *args, **kwargs).tag(tag_val)
         elif day_time:
