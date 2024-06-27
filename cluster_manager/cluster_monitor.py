@@ -245,7 +245,7 @@ class ClusterMonitor:
         if first_action_run is None:
             pass
         else:
-            if current_time < first_action_run:
+            if current_time < float(first_action_run):
                 cm_logger.info(f"Triggered action at {datetime.fromtimestamp(current_time)}. "
                             f"First should not start before "
                             f"{datetime.fromtimestamp(first_action_run)}")

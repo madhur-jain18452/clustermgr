@@ -34,7 +34,7 @@ init_prod:
 		pip install -r requirements.txt && \
 		nohup python3 clustermgr.py $(CLUSTER_CFG_FILE) $(USER_CFG_FILE) \
 		--port $(PORT_TO_RUN_ON) \
-		--run-cache-refresh $(CACHE_REFRESH_INTERVAL) \
+		--refresh-cache $(CACHE_REFRESH_INTERVAL) \
 		--mail-frequency $(MAIL_FREQUENCY) \
 		--action-frequency $(ACTION_FREQUENCY) \
 		--refresh-offense $(REFRESH_OFFENSE) \
@@ -53,7 +53,7 @@ init_eval:
 		pip install -r requirements.txt && \
 		nohup python3 clustermgr.py $(CLUSTER_CFG_FILE) $(USER_CFG_FILE) \
 		--port $(PORT_TO_RUN_ON) \
-		--run-cache-refresh $(CACHE_REFRESH_INTERVAL) \
+		--refresh-cache $(CACHE_REFRESH_INTERVAL) \
 		--mail-frequency $(MAIL_FREQUENCY) \
 		--action-frequency $(ACTION_FREQUENCY) \
 		--refresh-offense $(REFRESH_OFFENSE) \

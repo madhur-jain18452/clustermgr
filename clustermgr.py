@@ -84,9 +84,19 @@ if __name__ == "__main__":
     parser.add_argument('--port', '-p', default=5000, type=int, help="Port to run the server on")
     parser.add_argument('--debug', '-d', action='store_true',
                         help="Run the server in the debug mode")
-    parser.add_argument('--run-cache-refresh', '-r', type=str,default='2m',
+    parser.add_argument('--refresh-cache', '-r', type=str,default='2m',
                         help="Frequency to run the cache rebuild. Pass the value in "
                              "the form 2m, 2h, 1d, etc.")
+    parser.add_argument('--refresh-offense', '-o', type=str,
+                        default='3h', help="Frequency to calculate and "
+                                           "retain the offending users")
+    parser.add_argument('--retain-offense', type=str, default='7d',
+                        help="Time for which to store the offenses. Default is 7 days")
+    parser.add_argument('--offense-checkback', '-c', type=str,
+                        default='2d', help="How far back should the sustained "
+                                           "offenses be checked. Default is 2 days "
+                                           "-- Checks the offenses that have been "
+                                           "there since two days")
     parser.add_argument('--mail-frequency', '-m', type=str, default='@1000',
                         help="Frequency to mail the offending Users. To run it "
                              "at a specific time per day, pass "
@@ -98,16 +108,6 @@ if __name__ == "__main__":
                                               "time per day, pass "
                                               "'@[time_of_day_24hours_format]'. "
                                               "Default: Once per day at 05:00 PM.")
-    parser.add_argument('--refresh-offense', '-o', type=str,
-                        default='3h', help="Frequency to calculate and "
-                                           "retain the offending users")
-    parser.add_argument('--retain-offense', type=str, default='7d',
-                        help="Time for which to store the offenses. Default is 7 days")
-    parser.add_argument('--offense-checkback', '-c', type=str,
-                        default='2d', help="How far back should the sustained "
-                                           "offenses be checked. Default is 2 days "
-                                           "-- Checks the offenses that have been "
-                                           "there since two days")
     parser.add_argument('--eval', action='store_true', help="Run the tool "
                                                             "in Eval mode (does not power-off "
                                                             "or remove NIC from the VM")
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     tm = TaskManager()
 
     # print("Adding repeated tasks to the TaskManager")
-    ref_freq = parse_freq_str_to_json(args.run_cache_refresh)
+    ref_freq = parse_freq_str_to_json(args.refresh_cache)
     tm.add_repeated_task(global_cache, "rebuild_cache", ref_freq, CACHE_REBUILD_TASK_TAG,
                          task_name="Refreshing cluster cache")
 
