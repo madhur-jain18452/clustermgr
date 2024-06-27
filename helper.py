@@ -45,12 +45,15 @@ STR_TO_TIME_UNIT_MAP = {
     's': ('seconds', 1),
     'm': ('minutes', 60),
     'h': ('hour', 60*60),
-    'd': ('day', 24*60*60)
+    'd': ('days', 24*60*60)
 }
 
 
 def parse_freq_str_to_json(frequency_str) -> dict:
     """Converts the frequency string to a JSON which stores these values
+    
+        Raises:
+            ValueError | Exception
     """
     str_to_check = frequency_str.strip()
     # Special case to handle something that needs to run every day at a specific time:
@@ -74,7 +77,7 @@ def parse_freq_str_to_json(frequency_str) -> dict:
         except ValueError as ve:
             raise f"Invalid time frequency string {str_to_check} received. Exception: {ve}"
     else:
-        raise f"Invalid time frequency string {str_to_check} received."
+        raise ValueError(f"Invalid time frequency string {str_to_check} received.")
     return {freq_unit: freq_val}
 
 

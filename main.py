@@ -17,9 +17,12 @@ from http import HTTPStatus
 from rest_api.cache_api import cache_blue_print
 from rest_api.cluster_api import cluster_blue_print
 from rest_api.user_api import user_blue_print
+from rest_api.tool_api import tool_blue_print
 
 from cluster_manager.global_cluster_cache import GlobalClusterCache
 from cluster_manager.cluster_monitor import ClusterMonitor
+from cluster_manager.constants import TAKE_ACTION_TASK_TAG, GET_OFFENSES_TASK_TAG,\
+    SEND_WARNING_TASK_TAG, CACHE_REBUILD_TASK_TAG
 from helper import load_config_file, verify_config, parse_freq_str_to_json, \
     convert_freq_str_to_seconds
 from scheduler.task import TaskManager
@@ -35,6 +38,7 @@ flask_cluster_mgr_app = Flask("cluster_mgr_server")
 flask_cluster_mgr_app.register_blueprint(cache_blue_print)
 flask_cluster_mgr_app.register_blueprint(cluster_blue_print)
 flask_cluster_mgr_app.register_blueprint(user_blue_print)
+flask_cluster_mgr_app.register_blueprint(tool_blue_print)
 
 
 def verify_and_parse_config(cluster_file, user_file) -> typing.Tuple[dict, dict]:
@@ -120,7 +124,7 @@ if __name__ == "__main__":
 
     # print("Adding repeated tasks to the TaskManager")
     ref_freq = parse_freq_str_to_json(args.run_cache_refresh)
-    tm.add_repeated_task(global_cache, "rebuild_cache", ref_freq,
+    tm.add_repeated_task(global_cache, "rebuild_cache", ref_freq, CACHE_REBUILD_TASK_TAG,
                          task_name="Refreshing cluster cache")
 
     global_cache.get_offending_items(get_vm_resources_per_cluster=True,
@@ -128,6 +132,7 @@ if __name__ == "__main__":
     kwargs = {'get_vm_resources_per_cluster': True, 'retain_diff': True}
     tm.add_repeated_task(global_cache, "get_offending_items",
                          parse_freq_str_to_json(args.offense_refresh),
+                         GET_OFFENSES_TASK_TAG,
                          task_name="Populating offenses", **kwargs)
     # c_time = time.time()
     # e_time = c_time + 100
@@ -156,12 +161,14 @@ if __name__ == "__main__":
     if args.mail_frequency.startswith("@"):
         mail_frequency = parse_freq_str_to_json(args.mail_frequency)
         tm.add_repeated_task(cluster_monitor, "send_warning_emails",
-                             mail_frequency, task_name="Send Warning Emails")
+                             mail_frequency, SEND_WARNING_TASK_TAG,
+                             task_name="Send Warning Emails")
         print(f"Will send first warning mail at {mail_frequency['day_time']} and then every day.")
     else:
         mail_frequency = parse_freq_str_to_json(args.mail_frequency)
         tm.add_repeated_task(cluster_monitor, "send_warning_emails",
-                             mail_frequency, task_name="Send Warning Emails")
+                             mail_frequency, SEND_WARNING_TASK_TAG,
+                             task_name="Send Warning Emails")
         first_mailing = time.time() + convert_freq_str_to_seconds(args.mail_frequency)
         print(f"Will send the warning mails starting at {datetime.fromtimestamp(first_mailing)}"
               f" with frequency: {mail_frequency}")
@@ -170,7 +177,8 @@ if __name__ == "__main__":
         parsed_time = parse_freq_str_to_json(args.action_frequency)
         # TODO Still need to have it run the next day after sending mail
         tm.add_repeated_task(cluster_monitor, "take_action_offenses", parsed_time,
-                         task_name="Take action on user offenses")
+                             TAKE_ACTION_TASK_TAG,
+                             task_name="Take action on user offenses")
         print(f"Will take action on the continued offenses at every day at "
               f"{parsed_time['day_time']}")
     else:
@@ -181,7 +189,8 @@ if __name__ == "__main__":
               f"{datetime.fromtimestamp(first_action_run)} with"
               f" frequency: {action_frequency}")
         tm.add_repeated_task(cluster_monitor, "take_action_offenses",
-                             action_frequency, task_name="Take action on user offenses")
+                             action_frequency, TAKE_ACTION_TASK_TAG,
+                             task_name="Take action on user offenses")
 
     retain_in_sec = convert_freq_str_to_seconds(args.retain_offense)
     print(f"\nRetaining the offenses for {args.retain_offense}: {retain_in_sec} secs")

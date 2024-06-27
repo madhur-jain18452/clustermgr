@@ -50,9 +50,18 @@ class TaskManager:
         self.continuous_task_thread.start()
         task_logger.info("Started the threads for taskmgr")
 
+    def delete_job(self, tag):
+        try:
+            jobs = self.schedule.get_jobs(tag=tag)
+            for job in jobs:
+                self.schedule.cancel_job(job)
+        except Exception as ex:
+            task_logger.exception(ex)
+            raise
+
     # Used by auto-schedule
     def add_repeated_task(self, class_obj, method_name, job_schedule_args,
-                          task_name=None, *args, **kwargs):
+                          tag_val, task_name=None, *args, **kwargs):
         """Adds a task which repeats every time-interval
         Args:
             class_obj: The object for which we have to run the function
@@ -69,10 +78,10 @@ class TaskManager:
         seconds = job_schedule_args.get("seconds")
         minutes = job_schedule_args.get("minutes")
         hour = job_schedule_args.get("hour")
-        day = job_schedule_args.get("day")
+        n_days = job_schedule_args.get("days")
         day_time = job_schedule_args.get("day_time")
 
-        populated_fields = sum([1 for value in [seconds, minutes, hour, day, day_time]
+        populated_fields = sum([1 for value in [seconds, minutes, hour, n_days, day_time]
                                 if value is not None])
         if populated_fields != 1:
             raise Exception(f"Expected exactly one field to be populated"
@@ -81,21 +90,21 @@ class TaskManager:
 
         class_fn = getattr(class_obj, method_name)
         if seconds:
-            self.schedule.every(seconds).seconds.do(class_fn, *args, **kwargs)
+            self.schedule.every(seconds).seconds.do(class_fn, *args, **kwargs).tag(tag_val)
         elif minutes:
-            self.schedule.every(minutes).minutes.do(class_fn, *args, **kwargs)
+            self.schedule.every(minutes).minutes.do(class_fn, *args, **kwargs).tag(tag_val)
         elif hour:
-            self.schedule.every(hour).hour.do(class_fn, *args, **kwargs)
-        elif day:
-            self.schedule.every(day).day.do(class_fn, *args, **kwargs)
+            self.schedule.every(hour).hour.do(class_fn, *args, **kwargs).tag(tag_val)
+        elif n_days:
+            self.schedule.every(n_days).days.do(class_fn, *args, **kwargs).tag(tag_val)
         elif day_time:
-            self.schedule.every().day.at(day_time).do(class_fn, *args, **kwargs)
+            self.schedule.every().day.at(day_time).do(class_fn, *args, **kwargs).tag(tag_val)
 
         if day_time:
             task_info = f"day at time: {day_time}"
         else:
             task_info = f"{minutes} minutes" if minutes else f"{hour} hour"\
-                        if hour else f"{seconds} seconds" if seconds else "{} day".format(day)
+                        if hour else f"{seconds} seconds" if seconds else "{} days".format(n_days)
         print(f"Added repeated task '{tname}' to run every "
               f"{task_info}")
 
