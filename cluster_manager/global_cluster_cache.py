@@ -591,6 +591,8 @@ class GlobalClusterCache(object):
         done = True
         # for pref in failed_pref_list:
         #     user_obj.update_prefix(prefix=pref, op='remove')
+        for cname, _ in self.GLOBAL_CLUSTER_CACHE.items():
+            self.map_vm_and_users_track_resources(cname)
         return failed_add_pref_list, failed_remove_pref_list, done
 
     def perform_cluster_vm_power_change(self,

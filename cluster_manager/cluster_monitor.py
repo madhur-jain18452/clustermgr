@@ -248,7 +248,7 @@ class ClusterMonitor:
             if current_time < float(first_action_run):
                 cm_logger.info(f"Triggered action at {datetime.fromtimestamp(current_time)}. "
                             f"First should not start before "
-                            f"{datetime.fromtimestamp(first_action_run)}")
+                            f"{datetime.fromtimestamp(float(first_action_run))}")
                 return
             pass
         checkback_seconds = os.environ.get("offense_checkback", str(ONE_DAY_IN_SECS))
