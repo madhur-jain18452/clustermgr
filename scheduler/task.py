@@ -13,7 +13,8 @@ import threading
 import time
 
 task_logger = logging.getLogger(__name__)
-handler = logging.FileHandler("cmgr_tasks.log", mode='w')
+task_logger.setLevel(logging.DEBUG)
+handler = logging.FileHandler("cmgr_tasks.log", mode='a')
 formatter = logging.Formatter("%(name)s - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 task_logger.addHandler(handler)
@@ -31,6 +32,7 @@ class TaskManager:
         return cls.task_mgr_instance
 
     def __init__(self):
+        task_logger.info("Initializing the task manager")
         # A schedule object to run repetitive tasks
         self.schedule = schedule
 
@@ -91,16 +93,17 @@ class TaskManager:
                                          f"{populated_fields}")
 
         class_fn = getattr(class_obj, method_name)
+        job_ref = None
         if seconds:
-            self.schedule.every(seconds).seconds.do(class_fn, *args, **kwargs).tag(tag_val)
+            job_ref = self.schedule.every(seconds).seconds.do(class_fn, *args, **kwargs).tag(tag_val)
         elif minutes:
-            self.schedule.every(minutes).minutes.do(class_fn, *args, **kwargs).tag(tag_val)
+            job_ref = self.schedule.every(minutes).minutes.do(class_fn, *args, **kwargs).tag(tag_val)
         elif hour:
-            self.schedule.every(hour).hours.do(class_fn, *args, **kwargs).tag(tag_val)
+            job_ref = self.schedule.every(hour).hours.do(class_fn, *args, **kwargs).tag(tag_val)
         elif n_days:
-            self.schedule.every(n_days).days.do(class_fn, *args, **kwargs).tag(tag_val)
+            job_ref = self.schedule.every(n_days).days.do(class_fn, *args, **kwargs).tag(tag_val)
         elif day_time:
-            self.schedule.every().day.at(day_time).do(class_fn, *args, **kwargs).tag(tag_val)
+            job_ref = self.schedule.every().day.at(day_time).do(class_fn, *args, **kwargs).tag(tag_val)
 
         if day_time:
             task_info = f"day at time: {day_time}"
@@ -109,6 +112,7 @@ class TaskManager:
                         if hour else f"{seconds} seconds" if seconds else "{} days".format(n_days)
         task_logger.info(f"Added repeated task '{tname}' to run every "
                          f"{task_info}")
+        return job_ref
 
     def _run_continuously(self):
         """Used by the class thread for continuous tasks.

@@ -652,16 +652,16 @@ class Cluster:
                 core_diff = prev_res[NuVMKeys.CORES_USED]
                 mem_diff = prev_res[NuVMKeys.MEMORY_USED]
 
-                print(f"Previous Resources was "
-                        f"{self.utilized_resources[ClusterKeys.CORES]} cores"
-                        f" and {self.utilized_resources[ClusterKeys.MEMORY]}"
-                        f" memory")
+                CLUSTER_CACHE_LOGGER_.debug(f"Previous Resources was "
+                                            f"{self.utilized_resources[ClusterKeys.CORES]} cores"
+                                            f" and {self.utilized_resources[ClusterKeys.MEMORY]}"
+                                            f" memory (Cluster: {self.name})")
                 self.utilized_resources[ClusterKeys.CORES] -= core_diff
                 self.utilized_resources[ClusterKeys.MEMORY] -= mem_diff
-                print(f"Now Resources was "
-                        f"{self.utilized_resources[ClusterKeys.CORES]}"
-                        f" cores and {self.utilized_resources[ClusterKeys.MEMORY]}"
-                        f" memory")
+                CLUSTER_CACHE_LOGGER_.debug(f"Now Resources was "
+                                            f"{self.utilized_resources[ClusterKeys.CORES]}"
+                                            f" cores and {self.utilized_resources[ClusterKeys.MEMORY]}"
+                                            f" memory")
 
                 vm_obj.process_power_off()
 
@@ -838,12 +838,14 @@ class Cluster:
         # for each of the NICs in the VM, delete it
         data = {"vm_uuid": vm_obj.uuid}
         url = self.prism_rest_ep + VM_ENDPOINT + vm_obj.uuid + '/nics'
+        # TODO Can handle this better
+        status = HTTPStatus.SERVICE_UNAVAILABLE
+        message = {'message': "Failed to remove NIC from VM"}
         for nic_info in vm_obj.nics:
             nic_id = nic_info['mac_address']
             # if nic_info['is_connected'] is True:
             data["nic_id"] = nic_id
             nic_del_url = url + f'/{nic_id}'
-            status = HTTPStatus.SERVICE_UNAVAILABLE
             resp_json = {}
             try:
                 status, resp_json = self._request_cluster(nic_del_url, data,

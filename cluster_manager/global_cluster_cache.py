@@ -31,7 +31,7 @@ DEFAULT_OFFENSE_RETAIN_VALUE = 5000
 
 GLOBAL_MGR_LOGGER = logging.getLogger(__name__)
 GLOBAL_MGR_LOGGER.setLevel(logging.DEBUG)
-handler = logging.FileHandler("cmgr_global_cache.log", mode='w')
+handler = logging.FileHandler("cmgr_global_cache.log", mode='a')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 GLOBAL_MGR_LOGGER.addHandler(handler)
@@ -128,6 +128,12 @@ class GlobalClusterCache(object):
         
     # Functions related to summarizing the CacheState
     def summary(self, print_summary=False) -> typing.Optional[typing.Dict]:
+        """Summarizes the cache state of the clusters and users.
+            Args:
+                print_summary (bool): If True, prints the summary on the console
+            Returns:
+                dict: Summary of the cache state, contains User_cache and cluster_cache
+        """
         if print_summary:
             print("\n\nCLUSTERS :")
             with self.GLOBAL_CLUSTER_CACHE_LOCK:
@@ -243,6 +249,7 @@ class GlobalClusterCache(object):
 
     # Functions related to Users, user cache rebuilds
     def _build_user_cache(self):
+        """Builds the cache for all the users."""
         # Since we already have the __new__ method protecting the data
         # we don't need lock, However, just for safety measure, i am adding
         with self.GLOBAL_CLUSTER_CACHE_LOCK:
@@ -432,6 +439,8 @@ class GlobalClusterCache(object):
                                       f"still building. Try again later.")
 
     def detect_deleted_vms(self):
+        """Detects the deleted VMs and processes them accordingly for their owner users
+        """
         for email, vm_cluster_map in self.current_user_vm_map.items():
             old_vm_cluster_map = self.old_user_vm_map.get(email, dict())
             newly_deleted_vm = set(old_vm_cluster_map.keys()) - set(vm_cluster_map.keys())
@@ -460,12 +469,19 @@ class GlobalClusterCache(object):
 
     # Functions relating to serving the REST API
     def get_clusters(self) -> typing.List:
+        """Returns the list of all the clusters in the cache"""
         cluster_name_list = list()
         for cname in self.GLOBAL_CLUSTER_CACHE.keys():
             cluster_name_list.append(cname)
         return cluster_name_list
 
     def get_users(self, skip_util=True) -> typing.List:
+        """Returns the list of all the users in the cache
+            Args:
+                skip_util (bool): If True, skips the utilization information
+            Returns:
+                list: List of all the users in the cache
+        """
         user_list = list()
         for _, user_obj in self.GLOBAL_USER_CACHE.items():
             user_info = user_obj.to_json()
@@ -479,6 +495,13 @@ class GlobalClusterCache(object):
         return user_list
 
     def get_cluster_info(self, cluster_name, arguments) -> typing.Dict:
+        """Returns the information about the cluster.
+            Args:
+                cluster_name (str): Name of the cluster
+                arguments (dict): Additional arguments to be passed
+            Returns:
+                dict: Information about the cluster
+        """
         cluster_info_dict = dict()
         include_template_vms = eval(arguments.get("include_template_vms", False))
         if eval(arguments.get("resources", 'False')):
@@ -713,6 +736,13 @@ class GlobalClusterCache(object):
                                  sort_by_cores=False,
                                  sort_by_mem=False
             ) -> typing.Dict:
+        """Helper function to list the VMs sorted by the resources they are using.
+        Args:
+            cluster_name (Optional|str): Name of the cluster to filter
+            count (int): Number of VMs to return. If -1, returns all.
+            sort_by_cores (bool): If True, sorts the VMs by the cores they are using
+            sort_by_mem (bool): If True, sorts the VMs by the mem they are using
+        """
         vm_using_resources_sorted_list = {}
         with self.GLOBAL_CLUSTER_CACHE_LOCK:
             if cluster_name is not None:
@@ -779,7 +809,18 @@ class GlobalClusterCache(object):
                             ) -> typing.Optional[typing.Tuple[dict, dict, dict]]:
         """Returns all the offending items on the cluster
         Args:
+            get_users_over_util (bool): If True, returns the users who are over-utilizing
+            include_vm_without_prefix (bool): If True, returns the VMs without prefix
+            get_vm_resources_per_cluster (bool): If True, returns the VMs sorted by resources
+            email (str): Email of the user to filter the offenses
+            cluster_name (str): Name of the cluster to filter the offenses
+            count (int): Number of VMs to return. If -1, returns all.
+            sort_by_cores (bool): If True, sorts the VMs by the cores they are using
+            sort_by_mem (bool): If True, sorts the VMs by the mem they are using
+            print_summary (bool): If True, prints the summary on the console
+            retain_diff (bool): If True, retains the diff in the cache
         Returns:
+            Tuple(dict, dict, dict): Offending users, VMs per cluster, VMs without prefix
         """
         users_over_utilizing_quota = {}
         vm_resources_per_cluster = {}

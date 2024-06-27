@@ -10,6 +10,7 @@ Author:
 import logging
 import json
 import threading
+import typing
 import os
 import time
 
@@ -22,7 +23,7 @@ from custom_exceptions.exceptions import SameTimestampError
 
 cm_logger = logging.getLogger(__name__)
 cm_logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler("cmgr_cluster_monitor.log", mode='w')
+handler = logging.FileHandler("cmgr_cluster_monitor.log", mode='a')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 cm_logger.addHandler(handler)
@@ -44,21 +45,33 @@ class ClusterMonitor:
         return cls._g_cluster_monitor_instance
 
     def __init__(self):
+        cm_logger.info("Initializing the ClusterMonitor")
         # self.mailer = smtplib.SMTP()
         pass
 
     def send_warning_emails(self):
+        """Function that sends warning emails to the users who are over-utilizing the resources.
+            This is added as a task in the scheduler.
+        """
+        cm_logger.info(f"Sending warning emails to the users who are over-utilizing the resources. timestamp: {time.time()}")
         pass
 
     def _calculate_continued_offenses(self, from_timestamp=None,
                                      new_timestamp=None,
-                                     timediff=ONE_DAY_IN_SECS):
+                                     timediff=ONE_DAY_IN_SECS
+                                     ) -> typing.Optional[typing.Tuple[dict, int, int]]:
         """Helper function that can calculate difference in upto
             two levels of JSON
             Args:
-                from_timestamp
-                new_timestamp
-                timediff
+                from_timestamp (optional): Start timestamp. If not provided, it is calculated from new_timestamp
+                new_timestamp (Optional): End timestamp. If not provided, current time is used
+                timediff: Time difference between the two timestamps. Default is 1 day (86400 seconds).
+            Returns:
+                None: If the offenses could not be calculated
+                else:
+                continued_offenses (dict): Offenses that are continued from the old to the new timestamp
+                actual_old_ts (int): Actual old timestamp used for the calculation
+                actual_new_ts (int): Actual new timestamp used for the calculation
         """
         global_cache = GlobalClusterCache()
         continued_offenses = {}
@@ -109,11 +122,24 @@ class ClusterMonitor:
                             # List of values (typically strings) TODO Handle other cases
                             common_offenders = set(old_v).intersection(set(new_v))
                             continued_offenses[k] = common_offenders
+            # TODO Send emails here
         return continued_offenses, actual_old_ts, actual_new_ts
 
     def take_action_offenses(self):
+        """Function that takes action on the offenses calculated
+        For each user, we try to bring the individual cluster utilization under\
+            control marking the VMs and powering them off
+        After all clusters are under control, the code checks if the global utilization under control.\
+            If not, checks the VMs across all clusters and marks them for power off greedily.
+        """
 
         def _user_json_to_list(u_json, cluster_name=None):
+            """Utility function that converts the user JSON to a list of VMs
+            Args:
+                u_json: User JSON
+                cluster_name (Optional): Cluster name to filter the VMs. \
+                    If not provided, all VMs are returned.
+            """
             if cluster_name:
                 return [{
                     res.CORES: util_info[res.CORES],
@@ -136,6 +162,8 @@ class ClusterMonitor:
         def _debug_resource_log(vm_info, u_email, gl_over_util_core,
                                 gl_over_util_mem, cl_name=None,
                                 cl_over_util_core=None, cl_over_util_mem=None):
+            """Utility function that logs the VMs Marked for removal
+            """
             if cl_name:
                 cm_logger.debug(f"Mark for REMOVE: VM:{vm_info['name']} user:"
                                 f"{u_email} cluster:{cname}. "
@@ -156,7 +184,18 @@ class ClusterMonitor:
 
         def _mark_vm_power_off_greedy(already_marked_set, _sorted_vm_list,
                                gl_core_util, gl_mem_util, cl_name=None, cl_core_util=None,
-                               cl_mem_util=None, verif_cores=True, verif_mem=False):
+                               cl_mem_util=None, check_cores=True, check_mem=False):
+            """Utility function that marks the VMs for power off
+            Args:
+                already_marked_set: Set of VMs that are already marked. The function will add to this set
+                _sorted_vm_list: List of VMs sorted by the resource consumption
+                gl_core_util: Global core utilization
+                gl_mem_util: Global memory utilization
+                cl_name (Optional): Cluster name, used when the VMs for a specific cluster are being marked
+                cl_core_util (Optional): Cluster core utilization
+                cl_mem_util (Optional): Cluster memory utilization
+                check_cores: Boolean flag to check if the we are getting (only) cores under control
+                check_mem: Boolean flag to check if we are getting (only) memory under control"""
             for _vm in _sorted_vm_list:
                 if (_vm['uuid'], _vm['parent_cluster']) not in already_marked_set:
                     # Update the resource over_utils to check if sufficient
@@ -178,40 +217,40 @@ class ClusterMonitor:
                     # powering off this VM, check only for the other resource
                     # We will either pass both the params or none of them
                     if cl_core_util is not None and cl_mem_util is not None:
-                        if verif_cores and verif_mem:
+                        if check_cores and check_mem:
                             if cl_core_util <= 0 or cl_mem_util <= 0:
                                 return cl_core_util, cl_mem_util, gl_core_util, gl_mem_util
-                        elif verif_cores:
+                        elif check_cores:
                             if cl_core_util <= 0:
                                 return cl_core_util, cl_mem_util, gl_core_util, gl_mem_util
-                        elif verif_mem:
+                        elif check_mem:
                             if cl_mem_util <= 0:
                                 return cl_core_util, cl_mem_util, gl_core_util, gl_mem_util
                     else:
-                        if verif_cores and verif_mem:
+                        if check_cores and check_mem:
                             if gl_core_util <= 0 or gl_mem_util <= 0:
                                 return cl_core_util, cl_mem_util, gl_core_util, gl_mem_util
-                        elif verif_cores:
+                        elif check_cores:
                             if gl_core_util <= 0:
                                 return cl_core_util, cl_mem_util, gl_core_util, gl_mem_util
-                        elif verif_mem:
+                        elif check_mem:
                             if gl_mem_util <= 0:
                                 return cl_core_util, cl_mem_util, gl_core_util, gl_mem_util
 
         global_cache = GlobalClusterCache()
         current_time = time.time()
+        cm_logger.info(f"Taking action on the users who are over-utilizing the resources. timestamp: {time.time()}")
         # If the first_action_run is set, honor that, else this is a task that runs at X time per day
         first_action_run = os.environ.get("first_action_run")
         if first_action_run is None:
             pass
         else:
-            # if current_time < first_action_run:
-            #     cm_logger.info(f"Triggered action at {datetime.fromtimestamp(current_time)}. "
-            #                 f"First should not start before "
-            #                 f"{datetime.fromtimestamp(first_action_run)}")
-            #     return
+            if current_time < first_action_run:
+                cm_logger.info(f"Triggered action at {datetime.fromtimestamp(current_time)}. "
+                            f"First should not start before "
+                            f"{datetime.fromtimestamp(first_action_run)}")
+                return
             pass
-        # TODO How far back should I check for the offenses?
         checkback_seconds = os.environ.get("offense_checkback", str(ONE_DAY_IN_SECS))
         start_time = current_time - int(checkback_seconds)
         offenses = \
@@ -268,7 +307,7 @@ class ClusterMonitor:
                                                   cl_name=cname,
                                                   cl_core_util=cl_over_util_core,
                                                   cl_mem_util=cl_over_util_mem,
-                                                  verif_cores=True, verif_mem=True)
+                                                  check_cores=True, check_mem=True)
                 if cl_over_util_core > 0:
                     cores_sorted_list = sorted(user_vm_list_this_cluster,
                                                key=lambda x: x[res.CORES],
@@ -279,7 +318,7 @@ class ClusterMonitor:
                             gl_over_util_core, gl_over_util_mem,
                             cl_name=cname, cl_core_util=cl_over_util_core,
                             cl_mem_util=cl_over_util_mem,
-                            verif_cores=True, verif_mem=False)
+                            check_cores=True, check_mem=False)
                 if cl_over_util_mem > 0:
                     memory_sorted_list = sorted(user_vm_list_this_cluster,
                                                 key=lambda x: x[res.MEMORY],
@@ -293,7 +332,7 @@ class ClusterMonitor:
                             cl_name=cname,
                             cl_core_util=cl_over_util_core,
                             cl_mem_util=cl_over_util_mem,
-                            verif_cores=False, verif_mem=True)
+                            check_cores=False, check_mem=True)
             # All the clusters are getting under control for this user.
             # Check if the global consumption is under control or not.
             if gl_over_util_core > 0 or gl_over_util_mem > 0:
@@ -308,19 +347,20 @@ class ClusterMonitor:
                         _mark_vm_power_off_greedy(
                             user_vms_marked_power_off, all_vm_list,
                             gl_over_util_core, gl_over_util_mem,
-                            verif_cores=True, verif_mem=False)
+                            check_cores=True, check_mem=False)
                 if gl_over_util_mem > 0:
                     all_vm_list = sorted(all_vm_of_user, key=lambda x: x[res.MEMORY], reverse=True)
                     cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem =\
                         _mark_vm_power_off_greedy(
                             user_vms_marked_power_off, all_vm_list,
                             gl_over_util_core, gl_over_util_mem,
-                            verif_cores=False, verif_mem=True)
+                            check_cores=False, check_mem=True)
             list_of_vm_uuid_cnames = list(user_vms_marked_power_off)
             cm_logger.info(f"User {user_email}, VMs to shut down: "
                            f"{','.join([f'{vm_set[1]}:{vm_set[0]}'
                                         for vm_set in list_of_vm_uuid_cnames])}")
             vm_uuids_to_turn_off.extend(list_of_vm_uuid_cnames)
+            # TODO Send emails here
         # We have all the VMs that need to be powered off in the cluster.
         # Perform actual power-off and NIC removal.
         # BACKLOG: Can do multi-threaded
@@ -346,4 +386,5 @@ class ClusterMonitor:
                     cm_logger.error(f"PowerOFF:FAIL RemoveNIC:-NA- Cluster "
                                     f"{cname}, VM UUID: {vm_uuid}. Error: "
                                     f"{po_msg['message']}")
+                    continue
 

@@ -154,26 +154,32 @@ if __name__ == "__main__":
         number_of_secs = convert_freq_str_to_seconds(args.offense_checkback)
         print(f"Calculating the offenses sustained from last {number_of_secs} sec.")
         os.environ.setdefault('offense_checkback', str(number_of_secs))
-    """
-    make the first run of the action 2 times time after the mails are done.
-    For e.g., if the mail is sent every 3 hours, first run of action will be 
-    done after 6 hours, and then the frequency will take effect/
-    """
+
+    # make the first run of the action 2 times time after the mails are done.
+    # For e.g., if the mail is sent every 3 hours, first run of action will be 
+    # done after 6 hours, and then the frequency will take effect/
+
     first_mailing = None
     if args.mail_frequency.startswith("@"):
         mail_frequency = parse_freq_str_to_json(args.mail_frequency)
-        tm.add_repeated_task(cluster_monitor, "send_warning_emails",
+        first_mail_job = tm.add_repeated_task(cluster_monitor, "send_warning_emails",
                              mail_frequency, SEND_WARNING_TASK_TAG,
                              task_name="Send Warning Emails")
-        print(f"Will send first warning mail at {mail_frequency['day_time']} and then every day.")
+        first_mailing = first_mail_job.next_run.timestamp()
+        print(f"Will send first warning mail at {mail_frequency['day_time']} and then every day.\n")
     else:
         mail_frequency = parse_freq_str_to_json(args.mail_frequency)
-        tm.add_repeated_task(cluster_monitor, "send_warning_emails",
+        first_mail_job = tm.add_repeated_task(cluster_monitor, "send_warning_emails",
                              mail_frequency, SEND_WARNING_TASK_TAG,
                              task_name="Send Warning Emails")
-        first_mailing = time.time() + convert_freq_str_to_seconds(args.mail_frequency)
+        first_mailing = first_mail_job.next_run.timestamp()
         print(f"Will send the warning mails starting at {datetime.fromtimestamp(first_mailing)}"
-              f" with frequency: {mail_frequency}")
+              f" with frequency: {mail_frequency}\n")
+
+    # Give two times the amount of time from first mail for the first action to run
+    first_action_run = first_mailing + convert_freq_str_to_seconds(args.mail_frequency)
+    first_action_run = first_mailing + convert_freq_str_to_seconds(args.mail_frequency)
+    os.environ.setdefault("first_action_run", str(first_action_run))
     
     if args.action_frequency.startswith("@"):
         parsed_time = parse_freq_str_to_json(args.action_frequency)
@@ -184,10 +190,8 @@ if __name__ == "__main__":
         print(f"Will take action on the continued offenses at every day at "
               f"{parsed_time['day_time']}")
     else:
-        first_action_run = first_mailing + convert_freq_str_to_seconds(args.mail_frequency)
-        os.environ.setdefault("first_action_run", str(first_action_run))
         action_frequency = parse_freq_str_to_json(args.action_frequency)
-        print(f"Will take action on the continued offenses at "
+        print(f"Will take action on the continued offenses after "
               f"{datetime.fromtimestamp(first_action_run)} with"
               f" frequency: {action_frequency}")
         tm.add_repeated_task(cluster_monitor, "take_action_offenses",
