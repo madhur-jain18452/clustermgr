@@ -77,3 +77,9 @@ clean:
 	@echo "Cleaned up $(APP_NAME) on $(REMOTE_HOST)"
 
 all: deploy init_eval
+
+verify:
+	@echo "Verifying $(APP_NAME) on $(REMOTE_HOST)"
+	curl -s http://$(REMOTE_HOST):$(PORT_TO_RUN_ON)/
+	@echo ""  # Add a new line
+	@echo "Verified $(APP_NAME) on $(REMOTE_HOST)"
