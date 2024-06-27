@@ -38,6 +38,27 @@ def list_clusters():
         pt.add_row([name])
     click.echo(pt)
 
+@cluster.command(name="add")
+@click.argument('cluster_name')
+@click.argument('ip')
+@click.argument('user')
+@click.argument('password')
+def add_cluster(cluster_name, ip, user, password):
+    """Add a new cluster to the cache
+    """
+    cluster_info = {
+        'name': cluster_name,
+        'ip': ip,
+        'user': user,
+        'password': password
+    }
+    res = requests.post(LOCAL_ENDPOINT + CLUSTER_EP, json=json.dumps(cluster_info))
+    if res.status_code == HTTPStatus.OK:
+        click.echo(f"Cluster {cluster_name} added successfully")
+    else:
+        click.echo(res.json())
+
+
 
 @cluster.command()
 @click.argument('cluster_name')

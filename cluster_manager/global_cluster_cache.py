@@ -595,6 +595,17 @@ class GlobalClusterCache(object):
             self.map_vm_and_users_track_resources(cname)
         return failed_add_pref_list, failed_remove_pref_list, done
 
+    def add_cluster(self, cluster_info):
+        """Adds a new cluster to the cache
+            Args:
+                cluster_info (dict): Information about the cluster
+        """
+        cluster_obj = Cluster(cluster_info["name"], cluster_info["ip"],
+                            cluster_info["user"], cluster_info["password"])
+        self.cluster_obj_list.append(cluster_obj)
+        self.GLOBAL_CLUSTER_CACHE[cluster_info['name']] = cluster_obj
+        self.rebuild_cache(all_clusters=False, cluster_name=cluster_info["name"])
+
     def perform_cluster_vm_power_change(self,
                                         cluster_name,
                                         vm_info

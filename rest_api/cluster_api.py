@@ -24,6 +24,14 @@ def list_clusters():
     return jsonify(global_cache.get_clusters()), HTTPStatus.OK
 
 
+@cluster_blue_print.route("/clusters", methods=[HTTPMethod.POST])
+def add_cluster():
+    cluster_info = json.loads(request.json)
+    global_cache = GlobalClusterCache()
+    global_cache.add_cluster(cluster_info)
+    return jsonify(global_cache.get_clusters()), HTTPStatus.OK
+
+
 @cluster_blue_print.route("/clusters/<cluster_name>/vms", methods=[HTTPMethod.GET])
 def get_cluster_info(cluster_name):
     arguments = request.args.to_dict()
