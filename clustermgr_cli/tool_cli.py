@@ -78,3 +78,26 @@ def update_cache_refresh_timings(new_frequency_str):
                        json=json.dumps(body))
     click.echo(res.json()['message'])
 
+@tool.command(name="dump-user")
+@click.option("--file", type=str, help="Name of the file to dump the user config")
+def dump_user_config(file):
+    """Dump the user config to a file
+    """
+    body = {}
+    if file:
+        body = {'dump_file': file}
+    res = requests.post(LOCAL_ENDPOINT + TOOL_EP + "/dump_user_config",
+                        json=json.dumps(body))
+    click.echo(res.json()['message'])
+
+@tool.command(name="dump-cluster")
+@click.option("--file", type=str, help="Name of the file to dump the user config")
+def dump_cluster_config(file):
+    """Dump the cluster config to a file
+    """
+    body = {}
+    if file:
+        body = {'dump_file': file}
+    res = requests.post(LOCAL_ENDPOINT + TOOL_EP + "/dump_cluster_config",
+                        json=json.dumps(body))
+    click.echo(res.json()['message'])

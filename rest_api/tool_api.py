@@ -136,3 +136,32 @@ def update_action_frequency():
     return (jsonify({'message': 'New offense action job updated successful '
                      f'for frequency {json.dumps(freq_json)}'}),
             HTTPStatus.OK)
+
+@tool_blue_print.route("/tool/dump_user_config", methods=[HTTPMethod.POST])
+def dump_user_config():
+    from cluster_manager.global_cluster_cache import GlobalClusterCache
+    global_cache = GlobalClusterCache()
+    args = json.loads(request.json)
+    file_name = args.get('dump_file', 'user_config.json')
+    ret_u = global_cache.dump_user_config(file_name)
+    if ret_u:
+        return (jsonify({'message': f'User config dumped to {file_name}'}),
+                HTTPStatus.OK)
+    else:
+        return (jsonify({'message': f'User config dump failed'}),
+                HTTPStatus.INTERNAL_SERVER_ERROR)
+
+@tool_blue_print.route("/tool/dump_cluster_config", methods=[HTTPMethod.POST])
+def dump_cluster_config():
+    from cluster_manager.global_cluster_cache import GlobalClusterCache
+    global_cache = GlobalClusterCache()
+    args = json.loads(request.json)
+    file_name = args.get('dump_file', 'cluster_config.json')
+    ret_c = global_cache.dump_cluster_config(file_name)
+    if ret_c:
+        return (jsonify({'message': f'Cluster config dumped to {file_name}'}),
+                HTTPStatus.OK)
+    else:
+        return (jsonify({'message': f'Cluster config dump failed'}),
+                HTTPStatus.INTERNAL_SERVER_ERROR)
+    

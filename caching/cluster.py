@@ -168,7 +168,16 @@ class Cluster:
                         cluster_info['vm_info'][vm_uuid] = each_vm.summary(print_summary=print_summary)
                 return cluster_info
 
-    # def to_json(self, resources=False, no_owner=False, sort_by_mem=False, sort)
+    def to_json(self):
+        """Convert the Cluster object to a JSON
+        """
+        from copy import deepcopy
+        return deepcopy({
+            "name": self.name,
+            "ip": self._ip_address,
+            "username": self._username,
+            "password": self._password
+        })
 
     def add_vm_with_no_prefix(self, timestamp, vm_name, uuid):
         """Add a new VM whch does not have a recognizable prefix to the cache

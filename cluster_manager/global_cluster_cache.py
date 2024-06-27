@@ -925,3 +925,41 @@ class GlobalClusterCache(object):
         new_offenses = self.timed_offenses[closest_end_ts]
 
         return closest_start_ts, old_offenses, closest_end_ts, new_offenses
+
+    def dump_user_config(self, file_name):
+        """Dumps the user configuration to a file
+        """
+        user_json_list = []
+        with self.GLOBAL_USER_CACHE_LOCK:
+            for _, user_obj in self.GLOBAL_USER_CACHE.items():
+                u_json = user_obj.to_json()
+                json_dump = {
+                    "name": u_json[UserKeys.NAME],
+                    "email": u_json[UserKeys.EMAIL],
+                    "prefix": u_json[UserKeys.PREFIX],
+                    "quota": u_json[UserKeys.CLUSTER_QUOTA]
+                }
+                json_dump['quota']['global'] = u_json[UserKeys.GLOBAL_QUOTA] 
+                user_json_list.append(json_dump)
+        dump_data = {"users": user_json_list}
+        try:
+            with open(file_name, 'w') as f:
+                f.write(json.dumps(dump_data, indent=4))
+        except Exception as ex:
+            raise ex
+        return True
+
+    def dump_cluster_config(self, file_name):
+        """Dumps the cluster configuration to a file
+        """
+        cluster_config_list = []
+        with self.GLOBAL_CLUSTER_CACHE_LOCK:
+            for _, c_obj in self.GLOBAL_CLUSTER_CACHE.items():
+                cluster_config_list.append(c_obj.to_json())
+        dump_data = {"clusters": cluster_config_list}
+        try:
+            with open(file_name, 'w') as f:
+                f.write(json.dumps(dump_data, indent=4))
+        except Exception as ex:
+            raise ex
+        return True

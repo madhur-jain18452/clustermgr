@@ -1,0 +1,16 @@
+{
+    "clusters": [
+        {
+            "name": "test",
+            "ip": "10.117.18.90",
+            "username": "admin",
+            "password": "Nutanix.1"
+        },
+        {
+            "name": "TOMAHAWK",
+            "ip": "10.46.31.50",
+            "username": "admin",
+            "password": "Nutanix.1"
+        }
+    ]
+}
