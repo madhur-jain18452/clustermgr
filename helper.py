@@ -91,5 +91,20 @@ def convert_freq_str_to_seconds(time_str) -> float:
             freq_val = int(time_str[0:-1])
             return freq_val * STR_TO_TIME_UNIT_MAP[str_to_check[-1].lower()][1]
         except ValueError as ve:
-            raise f"Invalid time frequency string {str_to_check} received. Exception: {ve}"
+            raise Exception(f"Invalid time frequency string {str_to_check} received. Exception: {ve}")
     raise f"Invalid time frequency string {str_to_check} received."
+
+def time_until_next_run(target_hour, target_minute):
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    today_run_time = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+    if now > today_run_time:
+        # If the current time is past today's run time, schedule it for tomorrow
+        next_run_time = today_run_time + timedelta(days=1)
+    else:
+        # Otherwise, it's still today
+        next_run_time = today_run_time
+    
+    # Calculate the time remaining until the next run
+    time_remaining = next_run_time - now
+    return time_remaining.total_seconds()

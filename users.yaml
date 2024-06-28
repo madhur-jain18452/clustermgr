@@ -134,8 +134,8 @@ users:
       - sahil.n
     quota:
       - global:
-          cores: 100
-          memory: 50
+          cores: 1
+          memory: 4
   - name: Eric Schneider
     email: eric.schneider@nutanix.com
     prefix:

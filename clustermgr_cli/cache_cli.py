@@ -15,7 +15,7 @@ from http import HTTPStatus
 from prettytable import PrettyTable
 from urllib import parse
 
-from .constants import CACHE_EP, LOCAL_ENDPOINT
+from .constants import CACHE_EP, LOCAL_ENDPOINT, CLI_HEADERS
 from tools.helper import convert_mb_to_gb
 
 
@@ -39,7 +39,7 @@ def get_offenses(resources, cluster, show_orphan_vms):
         'resources': resources,
         'cluster': cluster if cluster else None
     }
-    res = requests.get(offense_url + '?' + parse.urlencode(args))
+    res = requests.get(offense_url + '?' + parse.urlencode(args), headers=CLI_HEADERS)
     
     response_json = res.json()
     
@@ -90,7 +90,7 @@ def get_offenses(resources, cluster, show_orphan_vms):
                                         convert_mb_to_gb(each_vm['total_resources_used']['total_mem_used_mb'])])
                 ptx.add_row(row)
                 sr_no += 1
-            print(pt)
+            click.echo(ptx)
 
 @cache.command(name="refresh")
 def force_refresh_cache():
@@ -99,7 +99,7 @@ def force_refresh_cache():
     refresh_url = LOCAL_ENDPOINT + CACHE_EP + "/refresh"
     res = None
     try:
-        res = requests.put(refresh_url, timeout=5)
+        res = requests.put(refresh_url, timeout=5, headers=CLI_HEADERS)
     except requests.exceptions.Timeout:
         click.echo("Timed out. Please check the logs.")
     if res.status_code == HTTPStatus.OK:
@@ -113,7 +113,7 @@ def update_retention_offenses(retain_offense):
     """
     offense_url = LOCAL_ENDPOINT + CACHE_EP + "/offenses/retain"
     args = {'retain_offense': retain_offense}
-    res = requests.put(offense_url, json=json.dumps(args))
+    res = requests.put(offense_url, json=json.dumps(args), headers=CLI_HEADERS)
     # click.echo(res.json()['message'])
     click.echo(res)
 

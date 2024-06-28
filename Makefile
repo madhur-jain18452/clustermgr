@@ -24,6 +24,17 @@ deploy:
 		rsync -av --exclude='*.pyc' --exclude='venv/' --exclude='*.log' --exclude='.git/' --exclude='.idea/' --exclude='.vscode/' --exclude='*/__py__cache' ./ $(REMOTE_USER)@$(REMOTE_HOST):$(REMOTE_DIR)/
 	@echo "Deployed to $(REMOTE_HOST):$(REMOTE_DIR)"
 
+init_eval_local:
+	python3 clustermgr.py $(CLUSTER_CFG_FILE) $(USER_CFG_FILE) \
+	--port $(PORT_TO_RUN_ON) \
+	--refresh-cache $(CACHE_REFRESH_INTERVAL) \
+	--mail-frequency $(MAIL_FREQUENCY) \
+	--action-frequency $(ACTION_FREQUENCY) \
+	--refresh-offense $(REFRESH_OFFENSE) \
+	--retain-offense $(RETAIN_OFFENSES) \
+	--offense-checkback $(OFFENSE_CHECKBACK_INTERVAL) \
+	--eval
+
 init_prod:
 	@echo "Initializing $(APP_NAME) on $(REMOTE_HOST) for user $(REMOTE_USER)"
 	ssh $(REMOTE_USER)@$(REMOTE_HOST) "\

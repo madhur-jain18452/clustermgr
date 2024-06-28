@@ -13,7 +13,7 @@ import requests
 
 from prettytable import PrettyTable
 
-from .constants import TOOL_EP, LOCAL_ENDPOINT
+from .constants import TOOL_EP, LOCAL_ENDPOINT, CLI_HEADERS
 from tools.helper import convert_mb_to_gb
 
 
@@ -28,7 +28,7 @@ def tool():
 def list_schedules():
     """List of all the clusters in the cache
     """
-    res = requests.get(LOCAL_ENDPOINT + TOOL_EP)
+    res = requests.get(LOCAL_ENDPOINT + TOOL_EP, headers=CLI_HEADERS)
     list_funcs = res.json()
     pt = PrettyTable(["Sr. No.", "Function", "Running every"])
     sr_no = 1
@@ -45,7 +45,7 @@ def update_cache_refresh_timings(new_frequency_str):
     """
     body = {'new_freq_str': new_frequency_str}
     res = requests.put(LOCAL_ENDPOINT + TOOL_EP + "/cache_refresh",
-                       json=json.dumps(body))
+                       json=json.dumps(body), headers=CLI_HEADERS)
     click.echo(res.json()['message'])
 
 @tool.command(name="update-offense-refresh")
@@ -55,7 +55,7 @@ def update_cache_refresh_timings(new_frequency_str):
     """
     body = {'new_freq_str': new_frequency_str}
     res = requests.put(LOCAL_ENDPOINT + TOOL_EP + "/offense_refresh",
-                       json=json.dumps(body))
+                       json=json.dumps(body), headers=CLI_HEADERS)
     click.echo(res.json()['message'])
 
 @tool.command(name="update-mail-freq")
@@ -65,7 +65,7 @@ def update_cache_refresh_timings(new_frequency_str):
     """
     body = {'new_freq_str': new_frequency_str}
     res = requests.put(LOCAL_ENDPOINT + TOOL_EP + "/mail_frequency",
-                       json=json.dumps(body))
+                       json=json.dumps(body), headers=CLI_HEADERS)
     click.echo(res.json()['message'])
 
 @tool.command(name="update-action-freq")
@@ -75,7 +75,7 @@ def update_cache_refresh_timings(new_frequency_str):
     """
     body = {'new_freq_str': new_frequency_str}
     res = requests.put(LOCAL_ENDPOINT + TOOL_EP + "/action_frequency",
-                       json=json.dumps(body))
+                       json=json.dumps(body), headers=CLI_HEADERS)
     click.echo(res.json()['message'])
 
 @tool.command(name="dump-user")
@@ -87,7 +87,7 @@ def dump_user_config(file):
     if file:
         body = {'dump_file': file}
     res = requests.post(LOCAL_ENDPOINT + TOOL_EP + "/dump_user_config",
-                        json=json.dumps(body))
+                        json=json.dumps(body), headers=CLI_HEADERS)
     click.echo(res.json()['message'])
 
 @tool.command(name="dump-cluster")
@@ -99,5 +99,5 @@ def dump_cluster_config(file):
     if file:
         body = {'dump_file': file}
     res = requests.post(LOCAL_ENDPOINT + TOOL_EP + "/dump_cluster_config",
-                        json=json.dumps(body))
+                        json=json.dumps(body), headers=CLI_HEADERS)
     click.echo(res.json()['message'])

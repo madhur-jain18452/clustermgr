@@ -15,7 +15,7 @@ import requests
 
 from http import HTTPStatus
 
-from .constants import USER_EP, LOCAL_ENDPOINT
+from .constants import USER_EP, LOCAL_ENDPOINT, CLI_HEADERS
 from tools.helper import convert_mb_to_gb
 
 BASE_USERS_EP = LOCAL_ENDPOINT + USER_EP
@@ -32,7 +32,7 @@ def user():
 def list(prefix, quota):
     """Lists all the Users in the system"""
     # TODO Add option for showing quota
-    res = requests.get(LOCAL_ENDPOINT + USER_EP)
+    res = requests.get(LOCAL_ENDPOINT + USER_EP, headers=CLI_HEADERS)
     columns = ['Name', 'Email']
     if prefix:
         columns.append("Prefixes")
@@ -91,7 +91,7 @@ def add(name, email, prefixes, total, cluster, flush, file):
     if cluster:
         for cname, core, mem in cluster:
             user_info['quota'].append({cname: {'cores': core, 'memory': mem}})
-    res = requests.post(user_url, json=json.dumps(user_info))
+    res = requests.post(user_url, json=json.dumps(user_info), headers=CLI_HEADERS)
     if res.status_code in [HTTPStatus.ACCEPTED, HTTPStatus.OK]:
         click.echo(f"User '{name}' successfully added to the cache")
 
@@ -133,7 +133,7 @@ def update(email, name, remove_prefixes, add_prefixes, total, cluster):
                 if mem != -1:
                     cluster_dict['memory'] = mem
                 user_info['quota'][cname] = cluster_dict
-    res = requests.patch(user_url, json=json.dumps(user_info))
+    res = requests.patch(user_url, json=json.dumps(user_info), headers=CLI_HEADERS)
     if res.status_code in [HTTPStatus.ACCEPTED, HTTPStatus.OK]:
         click.echo(f"User '{email}' successfully added to the cache")
 
@@ -148,7 +148,7 @@ def list_vms(email, resources, cluster):
     user_url = BASE_USERS_EP + "/" + email + "/vms"
     if cluster:
         user_url += f"?cluster={cluster}"
-    res = requests.get(user_url)
+    res = requests.get(user_url, headers=CLI_HEADERS)
     if res.status_code == HTTPStatus.NOT_FOUND:
         click.echo(f"User with email {email} "
                    f"{f'or cluster with name {cluster}' if cluster else ''}"

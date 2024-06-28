@@ -24,7 +24,7 @@ from cluster_manager.cluster_monitor import ClusterMonitor
 from cluster_manager.constants import TAKE_ACTION_TASK_TAG, GET_OFFENSES_TASK_TAG,\
     SEND_WARNING_TASK_TAG, CACHE_REBUILD_TASK_TAG
 from helper import load_config_file, verify_config, parse_freq_str_to_json, \
-    convert_freq_str_to_seconds
+    convert_freq_str_to_seconds, time_until_next_run
 from scheduler.task import TaskManager
 
 
@@ -176,20 +176,20 @@ if __name__ == "__main__":
         print(f"Will send the warning mails starting at {datetime.fromtimestamp(first_mailing)}"
               f" with frequency: {mail_frequency}\n")
 
-    # Give two times the amount of time from first mail for the first action to run
-    first_action_run = first_mailing + convert_freq_str_to_seconds(args.mail_frequency)
-    first_action_run = first_mailing + convert_freq_str_to_seconds(args.mail_frequency)
-    os.environ.setdefault("first_action_run", str(first_action_run))
-    
+    # The action is performed at some day-time -->
+    # we will just ensure that the first action does not happen before
+    # the mails are first sent
+    os.environ.setdefault("first_mailing", str(first_mailing))
+
     if args.action_frequency.startswith("@"):
         parsed_time = parse_freq_str_to_json(args.action_frequency)
-        # TODO Still need to have it run the next day after sending mail
         tm.add_repeated_task(cluster_monitor, "take_action_offenses", parsed_time,
                              TAKE_ACTION_TASK_TAG,
                              task_name="Take action on user offenses")
         print(f"Will take action on the continued offenses at every day at "
               f"{parsed_time['day_time']}")
     else:
+        first_action_run = first_mailing + convert_freq_str_to_seconds(args.mail_frequency)
         action_frequency = parse_freq_str_to_json(args.action_frequency)
         print(f"Will take action on the continued offenses after "
               f"{datetime.fromtimestamp(first_action_run)} with"

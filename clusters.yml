@@ -1,18 +1,18 @@
 # Should we be querying physical server or the cluster 
 # If cluster -- how do we know who is the leader
 clusters:
-  # - name: tade
-  #   ip: 10.46.211.195
-  #   user: admin
-  #   password: Nutanix.1
-  # - name: TOMAHAWK
-  #   ip: 10.46.31.50
-  #   user: admin
-  #   password: Nutanix.1
-  # - name: era_dev_sap_hana
-  #   ip: 10.50.32.200
-  #   user: admin
-  #   password: Nutanix.1
+  - name: tade
+    ip: 10.46.211.195
+    user: admin
+    password: Nutanix.1
+  - name: TOMAHAWK
+    ip: 10.46.31.50
+    user: admin
+    password: Nutanix.1
+  - name: era_dev_sap_hana
+    ip: 10.50.32.200
+    user: admin
+    password: Nutanix.1
   - name: test
     ip: 10.117.18.90
     user: admin

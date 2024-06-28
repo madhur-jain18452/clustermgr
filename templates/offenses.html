@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=0.8">
+    <title>Offenses List</title>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <!-- <link rel="stylesheet" href="templates/static/css/style.css"> -->
+    <style>
+        .collapsible {
+            background-color: #eee;
+            color: #444;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 15px;
+        }
+
+.active, .collapsible:hover {
+    background-color: #ccc;
+}
+
+.content {
+    padding: 0 18px;
+    display: none;
+    overflow: hidden;
+    background-color: #f1f1f1;
+}
+.collapsible:after {
+    content: '\02795'; /* Unicode character for "plus" sign (+) */
+    font-size: 13px;
+    color: white;
+    float: right;
+    margin-left: 5px;
+}
+
+.active:after {
+    content: "\2796"; /* Unicode character for "minus" sign (-) */
+}
+.top-sticky {
+    position: fixed;
+    height: 5%;
+    top: 0;
+    width: 100%
+}
+
+    </style>
+</head>
+<body>
+    <div class="w3-bar w3-black top-sticky">
+        <a href="/cache/offenses" class="w3-bar-item w3-button">Offenses</a>
+        <a href="/users" class="w3-bar-item w3-button">Users</a>
+        <a href="/clusters" class="w3-bar-item w3-button">Clusters</a>
+        <!-- <a href="#" class="w3-bar-item w3-button">Link 3</a> -->
+      </div>
+    <h2 style="padding-left: 2%; margin-top: 5%;">List of Users over-utilizing their quotas</h2>
+    <div >
+        <table class="w3-table w3-striped w3-bordered">
+            <tr>
+                <!-- <th>Sr. No.</th> -->
+                <th>Email</th>
+                <th>Cluster Name</th>
+                <th>Global</th>
+                <th>Over-usage</th>
+            </tr>
+            <!-- {% set sr_no = 1 %} -->
+            {% for email, cluster_res_info in offenses.get('users', {}).items() %}
+            {% set email_added = False %}
+            <tr>
+                {% if "global" in cluster_res_info %}
+                    {% set email_added = True %}
+                    <!-- <td>{{ sr_no }}</td> -->
+                    <td>{{ email }}</td>
+                    <td>--</td>
+                    <td>Yes</td>
+                    <td>{{ cluster_res_info['global'] }}</td>
+                {% else %}
+                    {% set sub_str = sr_no %}
+                    {% for cluster_name, cluster_res in cluster_res_info.items() %}
+                        {% if cluster_name != "global" %}
+                            <!-- <td>{{ '{:.2f}'.format(sub_str) }}</td> -->
+                            {% if not email_added %}
+                                <td>{{ email }}</td>
+                                {% set email_added = True %}
+                            {% else %}
+                                <td></td>
+                            {% endif %}
+                            <td>{{ cluster_name }}</td>
+                            <td></td>
+                            <td>{{ cluster_res }}</td>
+                        {% endif %}
+                        {% set sub_str = sub_str + 0.01 %}
+                    {% endfor %}
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <h2 style="padding-left: 2%;">List of VMs whose owners could not be verified per cluster</h2>
+    {% for cname, vm_info_list in offenses.get("vms", {}).items() %}
+    <div style="margin: 5px;">
+        <button type="button" class="collapsible">{{ cname }} : {{ vm_info_list | length }} VMs</button>
+        <div class="content">
+            <table class="w3-table w3-striped w3-bordered">
+                <tr>
+                    <th>sr_no</th>
+                    <th>VM Name</th>
+                    <th>VM UUID</th>
+                </tr>
+                {% set sr_no = 1 %}
+                {% for each_vm in vm_info_list %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ each_vm[1] }}</td>
+                    <td>{{ each_vm[0] }}</td>
+                </tr>
+                {% set sr_no = sr_no + 1 %}
+                {% endfor %}
+
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+
+</body>
+<script>
+    var coll = document.getElementsByClassName("collapsible");
+    var i;
+
+    for (i = 0; i < coll.length; i++) {
+    coll[i].addEventListener("click", function() {
+        this.classList.toggle("active");
+        var content = this.nextElementSibling;
+        if (content.style.display === "block") {
+        content.style.display = "none";
+        } else {
+        content.style.display = "block";
+        }
+    });
+    }
+</script>
+</html>

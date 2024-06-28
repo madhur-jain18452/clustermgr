@@ -16,7 +16,7 @@ from prettytable import PrettyTable
 from urllib import parse
 
 from caching.server_constants import PowerState
-from .constants import CLUSTER_EP, LOCAL_ENDPOINT
+from .constants import CLUSTER_EP, LOCAL_ENDPOINT, CLI_HEADERS
 from tools.helper import convert_mb_to_gb
 
 
@@ -31,7 +31,7 @@ def cluster():
 def list_clusters():
     """List of all the clusters in the cache
     """
-    res = requests.get(LOCAL_ENDPOINT + CLUSTER_EP)
+    res = requests.get(LOCAL_ENDPOINT + CLUSTER_EP, headers=CLI_HEADERS)
     cluster_list = res.json()
     pt = PrettyTable(['Cluster Name'])
     for name in cluster_list:
@@ -52,12 +52,11 @@ def add_cluster(cluster_name, ip, user, password):
         'user': user,
         'password': password
     }
-    res = requests.post(LOCAL_ENDPOINT + CLUSTER_EP, json=json.dumps(cluster_info))
+    res = requests.post(LOCAL_ENDPOINT + CLUSTER_EP, json=json.dumps(cluster_info), headers=CLI_HEADERS)
     if res.status_code == HTTPStatus.OK:
         click.echo(f"Cluster {cluster_name} added successfully")
     else:
         click.echo(res.json())
-
 
 
 @cluster.command()
@@ -116,7 +115,7 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
     
     url = LOCAL_ENDPOINT + CLUSTER_EP + '/' + cluster_name + '/vms?' + query_str
 
-    res = requests.get(url)
+    res = requests.get(url, headers=CLI_HEADERS)
     if res.status_code == HTTPStatus.NOT_FOUND:
         click.echo(f"Cluster with name {cluster_name} not found in the cache!")
         return
@@ -265,7 +264,7 @@ def power_off_vm(cluster_name, off, uuid, name):
     if off:
         params['new_power_state'] = 'off'
     import json
-    res = requests.post(power_state_url, json=json.dumps(params))
+    res = requests.post(power_state_url, json=json.dumps(params), headers=CLI_HEADERS)
     if res.status_code in [HTTPStatus.NOT_FOUND,
                            HTTPStatus.BAD_REQUEST,
                            HTTPStatus.EXPECTATION_FAILED,
@@ -297,7 +296,7 @@ def remove_vm_nic(cluster_name, remove, uuid, name):
     }
     if remove:
         params['nic_operation'] = 'remove'
-    res = requests.delete(vm_nic_url, json=json.dumps(params))
+    res = requests.delete(vm_nic_url, json=json.dumps(params), headers=CLI_HEADERS)
     if res.status_code in [HTTPStatus.NOT_FOUND,
                            HTTPStatus.BAD_REQUEST,
                            HTTPStatus.EXPECTATION_FAILED,

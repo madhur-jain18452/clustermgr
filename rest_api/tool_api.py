@@ -164,4 +164,3 @@ def dump_cluster_config():
     else:
         return (jsonify({'message': f'Cluster config dump failed'}),
                 HTTPStatus.INTERNAL_SERVER_ERROR)
-    

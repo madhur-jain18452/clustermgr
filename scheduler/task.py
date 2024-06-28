@@ -10,6 +10,7 @@ Author:
 import logging
 import schedule
 import threading
+import typing
 import time
 
 task_logger = logging.getLogger(__name__)
@@ -53,6 +54,12 @@ class TaskManager:
         task_logger.info("Started the threads for taskmgr")
 
     def delete_job(self, tag):
+        """Deletes a job with a specific tag
+        There can be multiple jobs with the same tag
+        Args:
+            tag (str): Tag of the job to be deleted
+        
+        """
         try:
             jobs = self.schedule.get_jobs(tag=tag)
             for job in jobs:
@@ -63,7 +70,8 @@ class TaskManager:
 
     # Used by auto-schedule
     def add_repeated_task(self, class_obj, method_name, job_schedule_args,
-                          tag_val, task_name=None, *args, **kwargs):
+                          tag_val, task_name=None, *args, **kwargs
+                          ) -> typing.Union[schedule.Job, None]:
         """Adds a task which repeats every time-interval
         Args:
             class_obj: The object for which we have to run the function
