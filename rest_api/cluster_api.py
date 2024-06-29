@@ -12,6 +12,7 @@ import json
 from flask import Blueprint, jsonify, request
 from http import HTTPStatus, HTTPMethod
 
+from custom_exceptions.exceptions import ActionAlreadyPerformedError
 from cluster_manager.global_cluster_cache import GlobalClusterCache
 
 
@@ -28,7 +29,19 @@ def list_clusters():
 def add_cluster():
     cluster_info = json.loads(request.json)
     global_cache = GlobalClusterCache()
-    global_cache.add_cluster(cluster_info)
+    try:
+        global_cache.add_cluster(cluster_info)
+    except ActionAlreadyPerformedError as aape:
+        return jsonify({"message": str(aape)}), HTTPStatus.BAD_REQUEST
+    return jsonify(global_cache.get_clusters()), HTTPStatus.OK
+
+@cluster_blue_print.route("/clusters/<cluster_name>", methods=[HTTPMethod.DELETE])
+def delete_cluster(cluster_name): 
+    global_cache = GlobalClusterCache()
+    try:
+        global_cache.untrack_cluster(cluster_name)
+    except Exception as e:
+        return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
     return jsonify(global_cache.get_clusters()), HTTPStatus.OK
 
 

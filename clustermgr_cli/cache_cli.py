@@ -17,6 +17,7 @@ from urllib import parse
 
 from .constants import CACHE_EP, LOCAL_ENDPOINT, CLI_HEADERS
 from tools.helper import convert_mb_to_gb
+from caching.server_constants import PowerState
 
 
 @click.group()
@@ -49,6 +50,8 @@ def get_offenses(resources, cluster, show_orphan_vms):
     pt.align["Sr. No."] = 'r'
     pt.align["Resources Over-utilized by"] = "l" # Left align as we are dumping a JSON
     sr_no = 1
+    with open('temp.json', 'w') as f:
+        f.write(json.dumps(response_json, indent=2))
     for email, cluster_res_info in response_json.get("users", {}).items():
         email_added = False
         if "global" in cluster_res_info:
@@ -85,9 +88,14 @@ def get_offenses(resources, cluster, show_orphan_vms):
                 if resources:
                     vm_list = vm_resources.get(cname, [])
                     for each_vm in vm_list:
-                        if each_vm == vtuple[1]:
+                        # print(each_vm['uuid'], vtuple[0])
+                        if each_vm['uuid'] == vtuple[0]:
                             row.extend([each_vm['total_resources_used']['total_cores_used'],
                                         convert_mb_to_gb(each_vm['total_resources_used']['total_mem_used_mb'])])
+                            break
+                    if len(row) == 3:
+                        # These are powered OFF VMs -- we do not track their consumption
+                        row.extend(["-", "-"])
                 ptx.add_row(row)
                 sr_no += 1
             click.echo(ptx)

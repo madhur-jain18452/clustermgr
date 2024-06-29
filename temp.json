@@ -1,0 +1,91 @@
+{
+  "resources": {},
+  "users": {
+    "sahil.naphade@nutanix.com": {
+      "global": {
+        "cores": 7,
+        "memory": 12288
+      },
+      "test": {
+        "cores": 7,
+        "memory": 14336.0
+      }
+    }
+  },
+  "vms": {
+    "test": [
+      [
+        "fc8ea0b6-7947-483d-b789-259ddae5b647",
+        "yash-msp-28c7a6-default-0"
+      ],
+      [
+        "d56cd68d-452e-414b-9aa8-49b1b8f22b61",
+        "mysql-tx-router-01"
+      ],
+      [
+        "deaeda2a-3907-45d9-b774-b67b480edc43",
+        "mysql-router_02"
+      ],
+      [
+        "ec713565-3d58-4f30-bef0-1d05fd9b654a",
+        "kim-ndb-server-2.6"
+      ],
+      [
+        "f007549c-2c7f-4b85-b974-9a2012f339bb",
+        "atalesara-era"
+      ],
+      [
+        "19aea161-7c14-4a81-b485-b2655b4426e2",
+        "mysql-tx-db-01"
+      ],
+      [
+        "2be28ae5-270e-4236-8589-d15bbff10ede",
+        "mysql-db-02"
+      ],
+      [
+        "362008b9-52e6-4d6a-82cb-9837c3c3303a",
+        "certificate-test-63a86e-hzmlwowmwy-envoy-0"
+      ],
+      [
+        "55ddbc37-e410-49a3-b3f3-04184fe70782",
+        "mysql-router_01"
+      ],
+      [
+        "66bd4cc6-22e7-4ccf-b32b-b87b6280a5a0",
+        "yash-msp-28c7a6-envoy-abc-0"
+      ],
+      [
+        "66d2173f-c50c-4599-86cc-3022c329a84b",
+        "certificate-test-63a86e-default-0"
+      ],
+      [
+        "84e95ce0-d89f-4223-88b5-5422a4bc4429",
+        "kim-ndb-server"
+      ],
+      [
+        "84f278b5-124a-4bc3-8e63-0774c77419d3",
+        "mysql-db-01"
+      ],
+      [
+        "a9af6fb4-9e38-4b84-b845-97c27bcc2d77",
+        "atalesara-ndb-era"
+      ],
+      [
+        "c3eeff6d-020e-47d8-b34c-602f2246fe50",
+        "rocky-ndb1"
+      ],
+      [
+        "c8b9291a-1390-419e-bed9-45f6f0f62f7b",
+        "auto_pc_6660694457f2f3a202e81b750"
+      ],
+      [
+        "d631821d-06a9-48fc-8da1-1bb909878fb2",
+        "mysql-db-03"
+      ],
+      [
+        "76194651-17f2-44e9-a0b9-423ae3c304f7",
+        "mysql-db-00"
+      ]
+    ]
+  }
+}

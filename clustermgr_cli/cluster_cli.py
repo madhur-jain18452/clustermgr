@@ -58,6 +58,17 @@ def add_cluster(cluster_name, ip, user, password):
     else:
         click.echo(res.json())
 
+@cluster.command(name="remove")
+@click.argument('cluster_name')
+def add_cluster(cluster_name):
+    """Remove a cluster from the cache
+    """
+    res = requests.delete(LOCAL_ENDPOINT + CLUSTER_EP + f'/{cluster_name}', headers=CLI_HEADERS)
+    if res.status_code == HTTPStatus.OK:
+        click.echo(f"Cluster {cluster_name} removed successfully")
+    else:
+        click.echo(res.json())
+
 
 @cluster.command()
 @click.argument('cluster_name')
@@ -178,9 +189,9 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
                     # For template VMs, we are not storing the resources info
                     for each_vm in vm_state.get("template_vm", []):
                         if each_vm['power_state'] == PowerState.ON:
-                            data = [sr_no, each_vm['name'] + '*',
-                                    str(each_vm['num_cores_per_vcpu'] * each_vm['num_vcpus'])+'*',
-                                    str(convert_mb_to_gb(each_vm['memory_mb'])+'*')
+                            data = [sr_no, each_vm['name'] + ' *',
+                                    str(each_vm['num_cores_per_vcpu'] * each_vm['num_vcpus'])+' *',
+                                    str(convert_mb_to_gb(each_vm['memory_mb'])+' *')
                                 ]
                             if no_owner:
                                 continue

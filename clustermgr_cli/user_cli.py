@@ -16,7 +16,7 @@ import requests
 from http import HTTPStatus
 
 from .constants import USER_EP, LOCAL_ENDPOINT, CLI_HEADERS
-from tools.helper import convert_mb_to_gb
+from tools.helper import convert_mb_to_gb, BINARY_CONVERSION_FACTOR
 
 BASE_USERS_EP = LOCAL_ENDPOINT + USER_EP
 
@@ -131,7 +131,7 @@ def update(email, name, remove_prefixes, add_prefixes, total, cluster):
                 if core != -1:
                     cluster_dict['cores'] = core
                 if mem != -1:
-                    cluster_dict['memory'] = mem
+                    cluster_dict['memory'] = mem * BINARY_CONVERSION_FACTOR
                 user_info['quota'][cname] = cluster_dict
     res = requests.patch(user_url, json=json.dumps(user_info), headers=CLI_HEADERS)
     if res.status_code in [HTTPStatus.ACCEPTED, HTTPStatus.OK]:
@@ -167,10 +167,10 @@ def list_vms(email, resources, cluster):
     for vm_info in res_json:
         data = [sr_no, vm_info['name'], vm_info['uuid'], vm_info['parent_cluster'], "RUNNING" if vm_info['power_state'] == PowerState.ON else "STOPPED"]
         if resources:
-            if vm_info['power_state'] == PowerState.ON:
-                cores_consumed += vm_info['cores']
-                memory_consumed += convert_mb_to_gb(vm_info['memory'])
             data.extend([vm_info['cores'], convert_mb_to_gb(vm_info['memory'])])
+        if vm_info['power_state'] == PowerState.ON:
+            cores_consumed += vm_info['cores']
+            memory_consumed += convert_mb_to_gb(vm_info['memory'])
         pt.add_row(data)
         sr_no += 1
     click.echo(f"List of VMs for the user {email} {'on ' + cluster if cluster else ''}: ")

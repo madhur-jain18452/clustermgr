@@ -877,3 +877,23 @@ class Cluster:
                                               f" {self.name} for VM {vm_obj.name},"
                                               f" UUID {vm_obj.uuid}, NIC: {nic_id}")
         return status, message
+
+    def cleanup(self):
+        """Cleanup the cache for the cluster
+        """
+        CLUSTER_CACHE_LOGGER_.info(f"Cleaning up the cache for Cluster {self.name}")
+        with self.vm_cache_lock:
+            self.vm_cache.clear()
+            self.hosts.clear()
+            self.power_off_vms.clear()
+            self.vms_not_following_naming_conv.clear()
+            self.vms_added_since_last_cache_build.clear()
+            self.skipped_vms.clear()
+            self.utilized_resources[ClusterKeys.CORES] = 0
+            self.utilized_resources[ClusterKeys.MEMORY] = 0
+            self.vm_count = 0
+            self.powered_off_vm_count = 0
+            self.cache_state = CacheState.PENDING
+            self.cache_build_done_ts = 0
+            self._threadpool_exec.shutdown(cancel_futures=True)
+        return

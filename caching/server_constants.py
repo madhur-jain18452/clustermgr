@@ -125,3 +125,8 @@ def check_vm_name_to_skip(name):
     if pattern.match(name):
         return True
     return False
+
+class OffenseKeys(object):
+    OFFENDING_VM = "vms"
+    RES_TRACKER = "resources"
+    OFFENDING_USERS = "users"

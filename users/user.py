@@ -110,7 +110,7 @@ class User:
         self.cluster_resource_tracker = dict()
         # Tracks total resources consumed across clusters
         self.total_resource_tracker = {RES.CORES: 0, RES.MEMORY: 0}
-        self.resources_lock = threading.Lock()
+        self.resources_lock = threading.RLock()
 
     def summary(self, summary_verbosity=0, print_summary=False)\
             -> typing.Optional[typing.Dict]:
@@ -131,7 +131,7 @@ class User:
                 print("\t\tVM: " + json.dumps(self.vm_resource_tracker))
         else:
             return self.to_json()
-
+    
     def to_json(self) -> typing.Dict:
         json_obj = dict()
         json_obj[USRK.NAME] = self.name
@@ -150,25 +150,30 @@ class User:
             # Any new VM is added before calling this function
             # If it is a new cluster
             if parent_cluster_name not in self.cluster_resource_tracker:
-                self.cluster_resource_tracker[parent_cluster_name] = {RES.CORES: 0, RES.MEMORY: 0}
-                USER_LOGGER_.debug(f"User: {self.email} - New cluster {parent_cluster_name} being tracked.")
+                self.cluster_resource_tracker[parent_cluster_name] = {
+                    RES.CORES: 0,
+                    RES.MEMORY: 0
+                }
+                USER_LOGGER_.debug(f"User: {self.email} - New cluster"
+                                   f" {parent_cluster_name} being tracked.")
 
-            USER_LOGGER_.debug(f"Cluster - {self.email} - Cluster {parent_cluster_name} resources: "
-                               f"{self.cluster_resource_tracker[parent_cluster_name]}")
-
+            USER_LOGGER_.debug(f"VM UUID {vm_uuid} {power_state} - {self.email} - VM {vm_uuid} resources: "
+                               f"mem_diff: {mem_diff} cores_diff: {cores_diff}")
             # Update total resources per user
-            if power_state == PowerState.ON:
-                # Update cores and memory for the User per VM
-                self.vm_resource_tracker[vm_uuid][RES.CORES] += cores_diff
-                self.vm_resource_tracker[vm_uuid][RES.MEMORY] += mem_diff
-                # Update cores and memory for the parent cluster
-                self.cluster_resource_tracker[parent_cluster_name][RES.MEMORY] += mem_diff
-                self.cluster_resource_tracker[parent_cluster_name][RES.CORES] += cores_diff
-                # Update global resource usage
-                self.total_resource_tracker[RES.MEMORY] += mem_diff
-                self.total_resource_tracker[RES.CORES] += cores_diff
-
-            USER_LOGGER_.debug(f"Total - {self.email}: {self.total_resource_tracker}")
+            # if (power_state == PowerState.ON) or (power_state == PowerState.OFF):
+            # Update cores and memory for the User per VM
+            self.vm_resource_tracker[vm_uuid][RES.CORES] += cores_diff
+            self.vm_resource_tracker[vm_uuid][RES.MEMORY] += mem_diff
+            # Update cores and memory for the parent cluster
+            self.cluster_resource_tracker[parent_cluster_name][RES.MEMORY] += mem_diff
+            self.cluster_resource_tracker[parent_cluster_name][RES.CORES] += cores_diff
+            # Update global resource usage
+            self.total_resource_tracker[RES.MEMORY] += mem_diff
+            self.total_resource_tracker[RES.CORES] += cores_diff
+            USER_LOGGER_.debug(f"Cluster - {self.email} - Cluster "
+                               f"{parent_cluster_name} resources: "
+                               f"{self.cluster_resource_tracker[parent_cluster_name]}")
+            USER_LOGGER_.debug(f"Total - {self.email}: {self.total_resource_tracker} CLUSTER: {self.cluster_resource_tracker}")
 
     def update_vm_resources(self, vm_config):
         try:
@@ -186,7 +191,7 @@ class User:
 
             cores_diff = vm_core_used - vm_old_resources[RES.CORES]
             mem_diff = vm_mem_used - vm_old_resources[RES.MEMORY]
-
+            USER_LOGGER_.debug(f"UUID: {uuid}, cores changed: {cores_diff} mem_diff: {mem_diff}")
             # Existing VM
             if uuid in self.vm_resource_tracker:
                 # old state Powered ON
@@ -203,8 +208,10 @@ class User:
                         else:
                             USER_LOGGER_.debug(f"VM {uuid} has remained ON")
                             pass
-                    # Transition from ON -> OFF (The VM has now stopped)
+                    
                     else:
+                        # Transition from ON -> OFF (The VM has now stopped)
+                        USER_LOGGER_.debug(f"VM {uuid} transitioned from ON -> OFF")
                         # Add to the stopped VM cache
                         self.vm_resource_tracker[uuid]['power_state'] = new_power_state
                         self.powered_off_vms.add(uuid)
@@ -212,7 +219,6 @@ class User:
                         self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
                         # Remove from running VM cache
                         self.powered_on_vms.remove(uuid)
-                        USER_LOGGER_.debug(f"VM {uuid} transitioned from ON -> OFF")
                         _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
                                     old_power_state=old_power_state)
                 # Old state Powered OFF
@@ -247,9 +253,9 @@ class User:
                 if new_power_state == PowerState.ON:
                     # The resources will be updated in _update_all_resources
                     self.powered_on_vms.add(uuid)
+                    self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff)
                 else:
                     self.powered_off_vms.add(uuid)
-                self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
                 _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
                             old_power_state=PowerState.UNKNOWN)
 
@@ -316,9 +322,11 @@ class User:
         cluster_consolidated_cores = 0
         cluster_consolidated_mem = 0
         for cluster_name, resources in self.cluster_resource_tracker.items():
+            USER_LOGGER_.debug(f"Cluster {cluster_name} - {resources}")
             cluster_name_list.append(cluster_name)
             cluster_consolidated_cores += resources[RES.CORES]
             cluster_consolidated_mem += resources[RES.MEMORY]
+        USER_LOGGER_.debug(f"{self.name} cluster_consolidated_cores: {cluster_consolidated_cores} cluster_consolidated_mem: {cluster_consolidated_mem}")
 
         # Verify the resources in all VMs against their respective clusters
         for cluster_name, resources in vm_calculated_resources_per_cluster.items():
@@ -376,9 +384,9 @@ class User:
             mem_diff = (-1) * old_resources[RES.MEMORY]
             cores_diff = (-1) * old_resources[RES.CORES]
             parent_cluster_name = old_resources['parent_cluster']
-            self.powered_on_vms.remove(deleted_vm_uuid)
             self._back_populate_vm_resources(deleted_vm_uuid, parent_cluster_name,
                                              mem_diff, cores_diff)
+            self.powered_on_vms.remove(deleted_vm_uuid)
         elif deleted_vm_uuid in self.powered_off_vms:
             self.powered_off_vms.remove(deleted_vm_uuid)
         # Since the VM is deleted, it is safe to delete from the resource tracker
@@ -472,3 +480,44 @@ class User:
                     if key in quota_json:
                         self.quotas[cluster_name][key] = quota_json[key]
         return True
+
+    def untrack_cluster(self, cluster_name):
+        """Function to untrack the cluster for the user.
+        Performs:
+            1. Lists all the VMs that need to be untracked
+            2. Processes the deletion of the VMs (in the user context)
+            3. Updates the quota for the user
+            4. Updates the cluster resource tracker
+
+        Args:
+            cluster_name (str): Name of the cluster to be untracked
+        """
+        with self.resources_lock:
+            # Delete the VMs and process their resources
+            uuid_to_del = []
+            for uuid, vm_info in self.vm_resource_tracker.items():
+                if vm_info['parent_cluster'] == cluster_name:
+                    uuid_to_del.append(uuid)
+            if uuid_to_del:
+                USER_LOGGER_.debug(f"Deleting VMs on {cluster_name} for user "
+                                   f"{self.email}: {','.join(uuid_to_del)}")
+            for uuid in uuid_to_del:
+                self.process_deleted_vm(uuid)
+            if cluster_name in self.quotas:
+                memory = self.quotas[cluster_name].get(RES.MEMORY, -1)
+                cores = self.quotas[cluster_name].get(RES.CORES, -1)
+                if memory > 0:
+                    self.global_mem_quota -= memory
+                if cores > 0:
+                    self.global_cores_quota -= cores
+                USER_LOGGER_.info(f"Untracking the quota for cluster "
+                                  f"'{cluster_name}' for the user {self.email}")
+                del self.quotas[cluster_name]
+            else:
+                USER_LOGGER_.info(f"No quota existed for cluster "
+                                  f"'{cluster_name}' for the user {self.email}")
+            if cluster_name in self.cluster_resource_tracker:
+                USER_LOGGER_.info(f"Untracking the cluster '{cluster_name}' "
+                                  f"for the user {self.email}")
+                del self.cluster_resource_tracker[cluster_name]
+            return True

@@ -58,45 +58,26 @@
       </div>
     <h2 style="padding-left: 2%; margin-top: 5%;">List of Users over-utilizing their quotas</h2>
     <div >
-        <table class="w3-table w3-striped w3-bordered">
+        <table class="w3-table w3-bordered">
             <tr>
                 <!-- <th>Sr. No.</th> -->
                 <th>Email</th>
                 <th>Cluster Name</th>
-                <th>Global</th>
+                <!-- <th>Global</th> -->
                 <th>Over-usage</th>
             </tr>
-            <!-- {% set sr_no = 1 %} -->
-            {% for email, cluster_res_info in offenses.get('users', {}).items() %}
-            {% set email_added = False %}
-            <tr>
-                {% if "global" in cluster_res_info %}
-                    {% set email_added = True %}
-                    <!-- <td>{{ sr_no }}</td> -->
-                    <td>{{ email }}</td>
-                    <td>--</td>
-                    <td>Yes</td>
-                    <td>{{ cluster_res_info['global'] }}</td>
-                {% else %}
-                    {% set sub_str = sr_no %}
-                    {% for cluster_name, cluster_res in cluster_res_info.items() %}
-                        {% if cluster_name != "global" %}
-                            <!-- <td>{{ '{:.2f}'.format(sub_str) }}</td> -->
-                            {% if not email_added %}
-                                <td>{{ email }}</td>
-                                {% set email_added = True %}
-                            {% else %}
-                                <td></td>
-                            {% endif %}
-                            <td>{{ cluster_name }}</td>
-                            <td></td>
-                            <td>{{ cluster_res }}</td>
-                        {% endif %}
-                        {% set sub_str = sub_str + 0.01 %}
-                    {% endfor %}
-                {% endif %}
-            </tr>
+            {% for email, clusters in offenses.get('users', {}).items() %}
+            {% set row_count = clusters|length %}
+            {% for cluster_name, specs in clusters.items() %}
+                <tr>
+                    {% if loop.first %}
+                        <td rowspan="{{ row_count }}">{{ email }}</td>
+                    {% endif %}
+                    <td>{{ cluster_name }}</td>
+                    <td>{{ specs }}</td>
+                </tr>
             {% endfor %}
+        {% endfor %}
         </table>
     </div>
 
