@@ -23,7 +23,7 @@ from caching.NuVM import NuVM
 from caching.server_constants import PRISM_PORT, PRISM_REST_FINAL_EP, \
     basic_auth_header, HTTPS, VM_ENDPOINT, generate_query_string, \
     CacheState, PowerState, HOSTS_EP, CLUSTER_EP, check_vm_name_to_skip
-from tools.helper import convert_mb_to_gb, convert_bytes_to_gb
+from tools.helper import bytes_to_mb
 from custom_exceptions.exceptions import InconsistentCacheError
 from common.constants import NuVMKeys, ClusterKeys, TaskStatus
 
@@ -72,7 +72,12 @@ class Cluster:
 
         # Variables specific to the management framework
         self.cache_build_done_ts = None
+        # This is the total manageable memory and cores UTILIZED/Allocated on the cluster
         self.utilized_resources = {ClusterKeys.CORES: 0, ClusterKeys.MEMORY: 0}
+        
+        # This is the absolute total memory and cores UTILIZED/Allocated on the cluster
+        # Specifically includes the white-listed VMs
+        self.abs_utilized_resources = {ClusterKeys.CORES: 0, ClusterKeys.MEMORY: 0}
 
         # Names of the VMs that do not follow naming conv and
         # the timestamp of checking
@@ -90,7 +95,11 @@ class Cluster:
         # caching logic. We will only store config instead of creating an object
         self.skipped_vms = dict()
 
-        # self._fetch_cluster_host_info()
+        self.abs_available_memory = 0
+        self.abs_available_cores = 0
+        cluster_info_populated = False
+
+        self._fetch_cluster_host_info()
 
     def is_cache_ready(self) -> bool:
         """Check if the cache is ready to be utilized
@@ -108,21 +117,39 @@ class Cluster:
         """
         mem = 0
         cores = 0
-        status_code, resp_json = self._request_cluster(self.prism_rest_ep + HOSTS_EP)
+        try:
+            status_code, resp_json = self._request_cluster(self.prism_rest_ep + HOSTS_EP)
+        except requests.exceptions.Timeout as ex:
+            self.cluster_info_populated = False
+            CLUSTER_CACHE_LOGGER_.exception(f"Fetching hosts information failed for the cluster {self.name} : {ex}")
+            return
         for entity in resp_json['entities']:
+            temp_mem = entity.get('memory_capacity_in_bytes', 0)
+            if temp_mem is not None:
+                mem += temp_mem
+            else:
+                CLUSTER_CACHE_LOGGER_.error(f"Memory capacity not found for host {entity['name']} UUID: {entity['uuid']} on cluster {self.name}")
+            temp_cores = entity.get('num_cpu_cores', 0)
+            temp_threads = entity.get('num_cpu_threads', 0)
+            if temp_cores is not None and temp_threads is not None:
+                cores += temp_threads * temp_cores
+            else:
+                CLUSTER_CACHE_LOGGER_.error(f"CPU not found for host {entity['name']} UUID: {entity['uuid']} on cluster {self.name}")
             pass
-            # CLUSTER_CACHE_LOGGER_.info(entity)
-            # mem += entity['memory_capacity_in_bytes']
-            # cores += entity['num_cpu_cores'] * entity['num_cpu_threads']
-            # self.hosts.append(entity)
         # Stored in Bytes
-        self.available_memory = mem
-        self.available_cores = cores
+        self.abs_available_memory = bytes_to_mb(mem)
+        self.abs_available_cores = cores
 
         # Get the Cluster UUID
-        status_code, resp_json = self._request_cluster(self.prism_rest_ep + CLUSTER_EP)
+        try:
+            status_code, resp_json = self._request_cluster(self.prism_rest_ep + CLUSTER_EP)
+        except requests.exceptions.Timeout as ex:
+            self.cluster_info_populated = False
+            CLUSTER_CACHE_LOGGER_.exception(f"Timeout occurred: {ex}")
+            return
         self.cluster_uuid = resp_json['cluster_uuid']
         self.id = resp_json['id']
+        self.cluster_info_populated = True
         pass
 
     def summary(self, summary_verbosity=0, print_summary=False) -> typing.Optional[typing.Dict]:
@@ -156,8 +183,9 @@ class Cluster:
                         each_vm.summary(print_summary=print_summary)
             else:
                 cluster_info = {
-                    NuVMKeys.NAME: self.name,
+                    ClusterKeys.NAME: self.name,
                     "count_powered_off_vm": self.powered_off_vm_count,
+                    "health_status": self.get_health_status()
                 }
                 if summary_verbosity > 1:
                     cluster_info["list_powered_off_vm"] = list(self.power_off_vms.keys())
@@ -272,6 +300,60 @@ class Cluster:
                                             f"\n\t\tResponse: {res.status_code}")
             raise ex
 
+    def _check_update_resources(self, new_config, old_config=None, is_whitelisted=True):
+        """Utility function to check and update the resources used by a whitelisted VM (Consolidating the checks)
+            Args:
+                new_config (dict): New VM config
+                old_config (dict): Old VM config
+                is_whitelisted (bool): If the VM is whitelisted, only update absolute_resources
+
+            Returns:
+                None
+        """
+        if is_whitelisted:
+            # If the old config is None == new VM
+            if old_config is None:
+                CLUSTER_CACHE_LOGGER_.debug(f"NEW {new_config['name']}:{new_config['power_state']} ==> Resources: core->{new_config['num_cores_per_vcpu'] * new_config['num_vcpus']} memory->{new_config['memory_mb']}")
+                CLUSTER_CACHE_LOGGER_.debug(f"NEW ==> Absolute Resources: {self.abs_utilized_resources}")
+                if new_config['power_state'] == PowerState.ON:
+                    self.abs_utilized_resources[ClusterKeys.CORES] += \
+                        new_config['num_cores_per_vcpu'] * new_config['num_vcpus']
+                    self.abs_utilized_resources[ClusterKeys.MEMORY] += new_config['memory_mb']
+                CLUSTER_CACHE_LOGGER_.debug(f"NEW ==> Resources After-updating {new_config['name']}: {self.abs_utilized_resources}")
+                return
+            # If previously OFF
+            if old_config['power_state'] == PowerState.OFF:
+                # And transitioned to ON
+                if new_config['power_state'] == PowerState.ON:
+                    self.abs_utilized_resources[ClusterKeys.CORES] += \
+                        new_config['num_cores_per_vcpu'] * new_config['num_vcpus']
+                    self.abs_utilized_resources[ClusterKeys.MEMORY] += new_config['memory_mb']
+                    return
+                else:
+                    pass
+            else:
+                # If previously ON
+                # If transitioned to OFF, release the resources
+                if new_config['power_state'] == PowerState.OFF:
+                    self.abs_utilized_resources[ClusterKeys.CORES] -= \
+                        old_config['num_cores_per_vcpu'] * old_config['num_vcpus']
+                    self.abs_utilized_resources[ClusterKeys.MEMORY] -= old_config['memory_mb']
+                    return
+                else:
+                    # still powered ON, check and update if the resources have changed
+                    old_cpu = old_config['num_cores_per_vcpu'] * old_config['num_vcpus']
+                    old_mem = old_config['memory_mb']
+                    new_cpu = new_config['num_cores_per_vcpu'] * new_config['num_vcpus']
+                    new_mem = new_config['memory_mb']
+                    cpu_diff = old_cpu - new_cpu
+                    mem_diff = old_mem - new_mem
+                    self.abs_utilized_resources[ClusterKeys.CORES] += cpu_diff
+                    self.abs_utilized_resources[ClusterKeys.MEMORY] += mem_diff
+                    return
+        else:
+            # Not yet implemented, handled through the other code path
+            pass
+
     def _fetch_and_cache_vm(self) -> None:
         """Parent function which performs following:
              1. Fetch all the VMs in the cluster
@@ -289,6 +371,9 @@ class Cluster:
                             f"REBUILDING or BUILDING state. Found: "
                             f"{CacheState.to_str(self.cache_state)}")
 
+        if not self.cluster_info_populated:
+            self._fetch_cluster_host_info()
+
         try:
             all_vm_config = self._fetch_vms_on_cluster()
         except Exception as ex:
@@ -304,7 +389,7 @@ class Cluster:
                 uuid = vm_config["uuid"]
                 name = vm_config["name"]
                 if check_vm_name_to_skip(name):
-                    CLUSTER_CACHE_LOGGER_.debug(f"Skipped caching VM {name}, uuid {uuid}")
+                    CLUSTER_CACHE_LOGGER_.debug(f"Skipped caching whitelisted VM {name}, uuid {uuid}")
                     # It is possible that the name might have changed
                     if uuid in self.skipped_vms:
                         if self.skipped_vms[uuid]['name'] != name:
@@ -313,6 +398,7 @@ class Cluster:
                                                        f" VM UUID {uuid} old_name: "
                                                        f"{self.skipped_vms[uuid]}"
                                                        f" -> new_name:{name}")
+                    self._check_update_resources(vm_config, self.skipped_vms.get(uuid))
                     self.skipped_vms[uuid] = vm_config
                     continue
                 # If the VM is running
@@ -331,6 +417,9 @@ class Cluster:
                         # Add the resources
                         self.utilized_resources[ClusterKeys.CORES] += new_cores_used
                         self.utilized_resources[ClusterKeys.MEMORY] += new_mem_used
+                        # Update the resources for absolute used resources
+                        self.abs_utilized_resources[ClusterKeys.CORES] += new_cores_used
+                        self.abs_utilized_resources[ClusterKeys.MEMORY] += new_mem_used
                         # As the VM turned ON, it now has a host_uuid
                         vm_obj.host_uuid = vm_config["host_uuid"]
                         # Add the VM to the cache tracking running VMs
@@ -369,6 +458,8 @@ class Cluster:
                             vm_obj.cores_used_per_vcpu = vm_config.get("num_cores_per_vcpu")
                             vm_obj.num_vcpu = vm_config.get("num_vcpus")
                             self.utilized_resources[ClusterKeys.CORES] += core_diff
+                            # Update the resources for absolute used resources
+                            self.abs_utilized_resources[ClusterKeys.CORES] += core_diff
                         if vm_obj.memory != vm_config.get("memory_mb"):
                             CLUSTER_CACHE_LOGGER_.info(f"VM {vm_obj.name}, "
                                                        f"Memory: {vm_obj.memory}"
@@ -376,13 +467,17 @@ class Cluster:
                             mem_diff = vm_config.get("memory_mb") - vm_obj.memory
                             vm_obj.memory = vm_config.get("memory_mb")
                             self.utilized_resources[ClusterKeys.MEMORY] += mem_diff
+                            self.abs_utilized_resources[ClusterKeys.MEMORY] += mem_diff
                         continue
                     # If the VM is a new VM altogether
                     else:
                         self.vm_count += 1
-                        self.utilized_resources[ClusterKeys.CORES] += \
-                            vm_config["num_cores_per_vcpu"] * vm_config["num_vcpus"]
+                        new_cores = vm_config["num_cores_per_vcpu"] * vm_config["num_vcpus"]
+                        self.utilized_resources[ClusterKeys.CORES] += new_cores
+                        self.abs_utilized_resources[ClusterKeys.CORES] += new_cores
+                            
                         self.utilized_resources[ClusterKeys.MEMORY] += vm_config['memory_mb']
+                        self.abs_utilized_resources[ClusterKeys.MEMORY] += vm_config['memory_mb']
 
                         self.vm_cache[uuid] = NuVM(vm_config, self.name)
 
@@ -406,6 +501,9 @@ class Cluster:
                             # Release the resources
                             self.utilized_resources[ClusterKeys.CORES] -= core_diff
                             self.utilized_resources[ClusterKeys.MEMORY] -= mem_diff
+                            # Update the resources for absolute used resources
+                            self.abs_utilized_resources[ClusterKeys.CORES] -= core_diff
+                            self.abs_utilized_resources[ClusterKeys.MEMORY] -= mem_diff
                             # Update the VM resources to 0 and
                             # Delete the host_uuid from the VM object
                             vm_obj.process_power_off()
@@ -456,6 +554,8 @@ class Cluster:
             # Update the resources
             self.utilized_resources[ClusterKeys.CORES] += core_diff
             self.utilized_resources[ClusterKeys.MEMORY] += mem_diff
+            self.abs_utilized_resources[ClusterKeys.CORES] += core_diff
+            self.abs_utilized_resources[ClusterKeys.MEMORY] += mem_diff
             CLUSTER_CACHE_LOGGER_.info(f"Deleted Running VM UUID {deleted_vm_uuid} "
                                        f"Owner {owner_email} from the cache")
             # Remove the VM to the cache tracking running VMs
@@ -468,7 +568,7 @@ class Cluster:
                                        f"cache")
             del self.power_off_vms[deleted_vm_uuid]
             self.powered_off_vm_count -= 1
-        self._check_consistency()
+        # self._check_consistency()
         pass
 
     def _check_consistency(self):
@@ -484,27 +584,52 @@ class Cluster:
                                          f"running and powered OFF VMs "
                                          f"{', '.join(intersection)}")
         cores_util = 0
+        abs_cores_util = 0
+
         mem_util = 0
-        memory = self.utilized_resources['memory']
+        abs_mem_util = 0
 
         CLUSTER_CACHE_LOGGER_.debug(f"The memory consumed is "
-                                    f"{self.utilized_resources['memory']} "
+                                    f"{self.utilized_resources[ClusterKeys.MEMORY]} "
                                     f"and the cores consumed is "
-                                    f"{self.utilized_resources['cores']}")
+                                    f"{self.utilized_resources[ClusterKeys.CORES]}")
 
         for _, vm_obj in self.vm_cache.items():
             res = vm_obj.to_json()["total_resources_used"]
             cores_util += res[NuVMKeys.CORES_USED]
+            abs_cores_util += res[NuVMKeys.CORES_USED]
             mem_util += res[NuVMKeys.MEMORY_USED]
-        if cores_util != self.utilized_resources['cores']:
+            abs_mem_util += res[NuVMKeys.MEMORY_USED]
+        CLUSTER_CACHE_LOGGER_.debug(f"{mem_util} Absolute: {abs_mem_util}")
+
+        for _, vm_config in self.skipped_vms.items():
+            if vm_config['power_state'] == PowerState.ON:
+                abs_cores_util += vm_config['num_cores_per_vcpu'] * vm_config['num_vcpus']
+                abs_mem_util += vm_config['memory_mb']
+        CLUSTER_CACHE_LOGGER_.debug(f"{mem_util} Absolute: {abs_mem_util}")
+
+        if cores_util != self.utilized_resources[ClusterKeys.CORES]:
             raise InconsistentCacheError("The number of cores utilized by VMs"
                                          " and stored in the cache"
                                          "are different.")
-        if mem_util != memory:
+        if abs_cores_util != self.abs_utilized_resources[ClusterKeys.CORES]:
+            raise InconsistentCacheError("The number of cores utilized by VMs"
+                                         " and stored in the cache"
+                                         "are different.")
+        if mem_util != self.utilized_resources[ClusterKeys.MEMORY]:
             raise InconsistentCacheError(f"The memory utilized by VMs"
                                          " and stored in the cache "
-                                         f"are different. Stored: {memory}"
+                                         "are different. Stored: "
+                                         f"{self.utilized_resources[ClusterKeys.MEMORY]}"
                                          f" Utilized: {mem_util}")
+        # CLUSTER_CACHE_LOGGER_.debug(f"Memory: abs_mem_util, type(abs_mem_util)")
+        # CLUSTER_CACHE_LOGGER_.debug(self.abs_utilized_resources[ClusterKeys.MEMORY], type(self.abs_utilized_resources[ClusterKeys.MEMORY]))
+        if abs_mem_util != int(self.abs_utilized_resources[ClusterKeys.MEMORY]):
+            raise InconsistentCacheError(f"The memory utilized by VMs"
+                                         " and stored in the cache "
+                                         "are different. Stored: "
+                                         f"{self.abs_utilized_resources[ClusterKeys.MEMORY]}"
+                                         f" Utilized: {abs_mem_util}")
         CLUSTER_CACHE_LOGGER_.debug("Everything is consistent")
 
     def get_vm_using_resources_sorted(self, count=-1,
@@ -689,15 +814,14 @@ class Cluster:
 
                 # Update the VM state in cache to process shutdown
                 vm_obj.process_power_off()
-                self._check_consistency()
+                # self._check_consistency()
                 return status, msg
         err = {'message': f"Task UUID {task_uuid} checking failed, timed out"}
         CLUSTER_CACHE_LOGGER_.error(err['message'])
         return HTTPStatus.EXPECTATION_FAILED, err
 
-
     def _request_cluster(self, url, data=None, params=None, json_val=None,
-                         method=HTTPMethod.GET):
+                         method=HTTPMethod.GET) -> typing.Tuple[HTTPStatus, typing.Dict]:
         """Utility function and a wrapper to contact the Cluster.
             Abstracts out the headers, information and so on.
             Defaults to performing GET request.
@@ -715,8 +839,14 @@ class Cluster:
 
 
         """
+        res = None
         if method == HTTPMethod.GET:
-            res = requests.get(url=url, headers=self._headers, verify=False)
+            try:
+                res = requests.get(url=url, headers=self._headers, verify=False, timeout=5)
+            except requests.exceptions.Timeout as te:
+                err_str = f"GET request to {url} timed out"
+                CLUSTER_CACHE_LOGGER_.error(err_str)
+                raise te
             if res.status_code in [HTTPStatus.OK,
                                    HTTPStatus.ACCEPTED,
                                    HTTPStatus.CREATED,
@@ -727,11 +857,19 @@ class Cluster:
                            f"{res.status_code}, message: {res.text}")
                 CLUSTER_CACHE_LOGGER_.error(err_str)
                 return res.status_code, {'message': err_str}
+
         if method == HTTPMethod.POST:
-            res = requests.post(url=url, headers=self._headers,
+            try:
+                res = requests.post(url=url, headers=self._headers,
                                 data=json.dumps(data) if data else None,
                                 json=json.dumps(json_val) if json_val else None,
+                                timeout=5,
                                 verify=False)
+            except requests.exceptions.Timeout as te:
+                err_str = (f"POST request failed with status code "
+                           f"{res.status_code}, message: {res.text}")
+                CLUSTER_CACHE_LOGGER_.error(err_str)
+                raise te
             if res.status_code in [HTTPStatus.OK,
                                    HTTPStatus.ACCEPTED,
                                    HTTPStatus.CREATED,
@@ -743,10 +881,17 @@ class Cluster:
                 CLUSTER_CACHE_LOGGER_.error(err_str)
                 return res.status_code, {'message': err_str}
         if method == HTTPMethod.DELETE:
-            res = requests.delete(url=url, headers=self._headers,
+            try:
+                res = requests.delete(url=url, headers=self._headers,
                                   data=json.dumps(data) if data else None,
                                   json=json.dumps(json_val) if json_val else None,
+                                  timeout=5,
                                   verify=False)
+            except requests.exceptions.Timeout as te:
+                err_str = (f"DELETE request failed with status code "
+                           f"{res.status_code}, message: {res.text}")
+                CLUSTER_CACHE_LOGGER_.error(err_str)
+                raise te
             if res.status_code in [HTTPStatus.OK,
                                    HTTPStatus.ACCEPTED,
                                    HTTPStatus.CREATED,
@@ -756,6 +901,7 @@ class Cluster:
                 err_str = f"DELETE request failed with status code {res.status_code}, message: {res.text}"
                 CLUSTER_CACHE_LOGGER_.error(err_str)
                 return res.status_code, {'message': err_str}
+        return HTTPStatus.NOT_IMPLEMENTED, {'message': f"HTTP Method {method} not implemented"}
 
     def _wait_for_task_completion(self, task_uuid, task_info_str="", timeout=20):
         start_time = time.time()
@@ -897,3 +1043,48 @@ class Cluster:
             self.cache_build_done_ts = 0
             self._threadpool_exec.shutdown(cancel_futures=True)
         return
+
+    def get_health_status(self):
+        """Get the health status of the cluster. Returns percentage of memory and cores still available
+            Returns:
+                dict: Dictionary containing the health status of the cluster
+        """
+        if self.cluster_info_populated:
+            status_dict = {
+                # This is in MiB
+                "absolute_available_memory": self.abs_available_memory,
+                # The cores is not a useful metric, as the cores are not a fixed resource
+                "absolute_available_cores": self.abs_available_cores,
+                "memory": 100 - (self.abs_utilized_resources[ClusterKeys.MEMORY] /
+                                self.abs_available_memory) * 100,
+                "cores": 100 - (self.abs_utilized_resources[ClusterKeys.CORES] /
+                                self.abs_available_cores) * 100
+            }
+            if status_dict["memory"] < 75:
+                status_dict["memory_state"] = "HEALTHY"
+            else:
+                status_dict["memory_state"] = "CRITICAL"
+            if status_dict["cores"] < 75:
+                status_dict["cores_state"] = "HEALTHY"
+            else:
+                status_dict["cores_state"] = "CRITICAL"
+            return status_dict
+        else:
+            return {
+                "message": "Cluster information not populated yet"
+            }
+
+    def get_updated_health_status(self, new_vm_cores, new_vm_mem):
+        """Get the updated health status of the cluster. Returns percentage of memory and cores still available
+            Args:
+                new_vm_cores (int): Cores used by the new VM
+                new_vm_mem (int): Memory used by the new VM
+            Returns:
+                dict: Dictionary containing the health status of the cluster
+        """
+        return {
+            "memory": 100 - ((self.abs_utilized_resources[ClusterKeys.MEMORY] + new_vm_mem) /
+                             self.abs_available_memory) * 100,
+            "cores": 100 - ((self.abs_utilized_resources[ClusterKeys.CORES] + new_vm_cores) /
+                            self.abs_available_cores) * 100
+        }

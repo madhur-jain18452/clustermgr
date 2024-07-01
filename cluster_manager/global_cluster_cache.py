@@ -517,15 +517,18 @@ class GlobalClusterCache(object):
                     )
         else:
             vm_list = None
+            health_status = None
             with self.GLOBAL_CLUSTER_CACHE_LOCK:
                 cluster_obj = self.GLOBAL_CLUSTER_CACHE.get(cluster_name, None)
                 if cluster_obj:
                     vm_list = cluster_obj.get_vm_list()
+                    health_status = cluster_obj.get_health_status()
             if vm_list:
                 cluster_info_dict['running_vm'] = vm_list[0]
                 cluster_info_dict['stopped_vm'] = vm_list[1]
                 if include_template_vms:
                     cluster_info_dict['template_vm'] = vm_list[2]
+            cluster_info_dict['health_status'] = health_status
         return cluster_info_dict
 
     def add_update_user(self, user_info,

@@ -19,33 +19,41 @@
             font-size: 15px;
         }
 
-.active, .collapsible:hover {
-    background-color: #ccc;
-}
+        .active, .collapsible:hover {
+            background-color: #ccc;
+        }
 
-.content {
-    padding: 0 18px;
-    display: none;
-    overflow: hidden;
-    background-color: #f1f1f1;
-}
-.collapsible:after {
-    content: '\02795'; /* Unicode character for "plus" sign (+) */
-    font-size: 13px;
-    color: white;
-    float: right;
-    margin-left: 5px;
-}
+        .content {
+            padding: 0 18px;
+            display: none;
+            overflow: hidden;
+            background-color: #f1f1f1;
+        }
+        .collapsible:after {
+            content: '\02795'; /* Unicode character for "plus" sign (+) */
+            font-size: 13px;
+            color: white;
+            float: right;
+            margin-left: 5px;
+        }
 
-.active:after {
-    content: "\2796"; /* Unicode character for "minus" sign (-) */
-}
-.top-sticky {
-    position: fixed;
-    height: 5%;
-    top: 0;
-    width: 100%
-}
+        .active:after {
+            content: "\2796"; /* Unicode character for "minus" sign (-) */
+        }
+        .top-sticky {
+            position: fixed;
+            height: 5%;
+            top: 0;
+            width: 100%
+        }
+        .sticky2 {
+            /* position: top-sticky + he; */
+            top: 50px; /* height of sticky1 + padding */
+            background-color: #555;
+            color: white;
+            padding: 10px;
+            z-index: 0; /* Ensure it stays below sticky1 */
+        }
 
     </style>
 </head>
@@ -81,10 +89,13 @@
         </table>
     </div>
 
-    <h2 style="padding-left: 2%;">List of VMs whose owners could not be verified per cluster</h2>
+    <h2 style="padding-left: 2%;">List of VMs whose owners could not be verified</h2>
     {% for cname, vm_info_list in offenses.get("vms", {}).items() %}
     <div style="margin: 5px;">
-        <button type="button" class="collapsible">{{ cname }} : {{ vm_info_list | length }} VMs</button>
+        {% set mem_health = offenses.get("health_status", {}).get(cname).get("memory_state", "UNKNOWN") %}
+        {% set color = "red" if mem_health == "UNHEALTHY" else "GoldenRod" if mem_health == "CRITICAL" else "green" if mem_health == "HEALTHY" else "DarkRed" %}
+        <button type="button" class="collapsible" style="color: {{ color }}">{{ cname }} : {{ vm_info_list | length }} VMs -- Memory Health: {{ mem_health }}</button>
+        </button>
         <div class="content">
             <table class="w3-table w3-striped w3-bordered">
                 <tr>

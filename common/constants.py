@@ -52,6 +52,8 @@ class Resources(object):
     CORES = "cores"
 
 class ClusterKeys(object):
+    NAME = "name"
+    UUID = "UUID"
     CORES = "cores"
     MEMORY = "memory"
 

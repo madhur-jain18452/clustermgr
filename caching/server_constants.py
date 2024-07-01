@@ -130,3 +130,10 @@ class OffenseKeys(object):
     OFFENDING_VM = "vms"
     RES_TRACKER = "resources"
     OFFENDING_USERS = "users"
+
+class HealthStatus(object):
+    HEALTHY = (0, 50, "HEALTHY", "green")
+    CRITICAL = (50, 75, "CRITICAL", "yellow")
+    UNHEALTHY = (75, 100, "UNHEALTHY", "red")
+    UNKNOWN = "UNKNOWN"
+    NOT_APPLICABLE = "NOT_APPLICABLE"

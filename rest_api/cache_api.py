@@ -61,7 +61,7 @@ def get_all_offenses():
         # FIXME -- To render webpage, I am considering all the parameters are requested.
         resources_req = True
         cluster_param = None
-        response = {'users': {}, 'vms': {}, 'resources': {}}
+        response = {'users': {}, 'vms': {}, 'resources': {}, 'health_status': {}}
         offending_items = global_cache.get_offending_items(
             get_vm_resources_per_cluster=resources_req,
             cluster_name=cluster_param,
@@ -71,6 +71,8 @@ def get_all_offenses():
             response["users"] = user_offenses
             response["vms"] = vms_without_prefix
             response["resources"] = vm_resources
+        for c_name in global_cache.GLOBAL_CLUSTER_CACHE:
+            response['health_status'][c_name] = global_cache.GLOBAL_CLUSTER_CACHE[c_name].get_health_status()
         return render_template("offenses.html", offenses=response)
 
 

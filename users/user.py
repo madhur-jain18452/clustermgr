@@ -176,93 +176,96 @@ class User:
             USER_LOGGER_.debug(f"Total - {self.email}: {self.total_resource_tracker} CLUSTER: {self.cluster_resource_tracker}")
 
     def update_vm_resources(self, vm_config):
-        try:
-            uuid, name, new_power_state, parent_cluster, vm_mem_used, vm_core_used\
-                = _extract_info_from_vm_config(vm_config)
+        with self.resources_lock:
+            try:
+                uuid, name, new_power_state, parent_cluster, vm_mem_used, vm_core_used\
+                    = _extract_info_from_vm_config(vm_config)
 
-            # Calculate the difference between the old resources and the new
-            # resources.
-            # If +ve -> resources consumed
-            # If -ve -> resources released
-            if new_power_state == PowerState.OFF:
-                vm_old_resources = {RES.CORES: 0, RES.MEMORY: 0}
-            else:
-                vm_old_resources = self.vm_resource_tracker.get(uuid, {RES.CORES: 0, RES.MEMORY: 0})
+                # Calculate the difference between the old resources and the new
+                # resources.
+                # If +ve -> resources consumed
+                # If -ve -> resources released
+                if new_power_state == PowerState.OFF:
+                    vm_old_resources = {RES.CORES: 0, RES.MEMORY: 0}
+                else:
+                    vm_old_resources = self.vm_resource_tracker.get(uuid, {RES.CORES: 0, RES.MEMORY: 0})
 
-            cores_diff = vm_core_used - vm_old_resources[RES.CORES]
-            mem_diff = vm_mem_used - vm_old_resources[RES.MEMORY]
-            USER_LOGGER_.debug(f"UUID: {uuid}, cores changed: {cores_diff} mem_diff: {mem_diff}")
-            # Existing VM
-            if uuid in self.vm_resource_tracker:
-                # old state Powered ON
-                if uuid in self.powered_on_vms:
-                    old_power_state = PowerState.ON
-                    # No transition (ON -> ON)
-                    if new_power_state == PowerState.ON:
-                        # If the resources consumption changed
-                        if mem_diff != 0 or cores_diff != 0:
+                cores_diff = vm_core_used - vm_old_resources[RES.CORES]
+                mem_diff = vm_mem_used - vm_old_resources[RES.MEMORY]
+                USER_LOGGER_.debug(f"UUID: {uuid}, cores changed: {cores_diff} mem_diff: {mem_diff}")
+                # Existing VM
+                if uuid in self.vm_resource_tracker:
+                    # old state Powered ON
+                    if uuid in self.powered_on_vms:
+                        old_power_state = PowerState.ON
+                        # No transition (ON -> ON)
+                        if new_power_state == PowerState.ON:
+                            # If the resources consumption changed
+                            if mem_diff != 0 or cores_diff != 0:
+                                self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
+                                _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
+                                            old_power_state=old_power_state)
+                            # else nothing
+                            else:
+                                USER_LOGGER_.debug(f"VM {uuid} has remained ON")
+                                pass
+                        
+                        else:
+                            # Transition from ON -> OFF (The VM has now stopped)
+                            USER_LOGGER_.debug(f"VM {uuid} transitioned from ON -> OFF")
+                            # Add to the stopped VM cache
+                            self.vm_resource_tracker[uuid]['power_state'] = new_power_state
+                            self.powered_off_vms.add(uuid)
+                            # Update the consumption
                             self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
+                            # Remove from running VM cache
+                            self.powered_on_vms.remove(uuid)
                             _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
                                         old_power_state=old_power_state)
-                        # else nothing
+                    # Old state Powered OFF
+                    elif uuid in self.powered_off_vms:
+                        old_power_state = PowerState.OFF
+                        # OFF -> ON transition
+                        if new_power_state == PowerState.ON:
+                            self.vm_resource_tracker[uuid]['power_state'] = new_power_state
+                            # Add to the running VM cache
+                            self.powered_on_vms.add(uuid)
+                            # Release resources
+                            self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
+                            # Remove from OFF Cache
+                            self.powered_off_vms.remove(uuid)
+                            _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
+                                        old_power_state=old_power_state)
+                        # No transition (OFF -> OFF)
                         else:
-                            USER_LOGGER_.debug(f"VM {uuid} has remained ON")
+                            USER_LOGGER_.debug(f"VM {uuid} has remained OFF")
                             pass
-                    
-                    else:
-                        # Transition from ON -> OFF (The VM has now stopped)
-                        USER_LOGGER_.debug(f"VM {uuid} transitioned from ON -> OFF")
-                        # Add to the stopped VM cache
-                        self.vm_resource_tracker[uuid]['power_state'] = new_power_state
-                        self.powered_off_vms.add(uuid)
-                        # Update the consumption
-                        self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
-                        # Remove from running VM cache
-                        self.powered_on_vms.remove(uuid)
-                        _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
-                                    old_power_state=old_power_state)
-                # Old state Powered OFF
-                elif uuid in self.powered_off_vms:
-                    old_power_state = PowerState.OFF
-                    # OFF -> ON transition
-                    if new_power_state == PowerState.ON:
-                        self.vm_resource_tracker[uuid]['power_state'] = new_power_state
-                        # Add to the running VM cache
-                        self.powered_on_vms.add(uuid)
-                        # Release resources
-                        self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
-                        # Remove from OFF Cache
-                        self.powered_off_vms.remove(uuid)
-                        _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
-                                    old_power_state=old_power_state)
-                    # No transition (OFF -> OFF)
-                    else:
-                        USER_LOGGER_.debug(f"VM {uuid} has remained OFF")
-                        pass
-            # New VM
-            else:
-                self.vm_resource_tracker[uuid] = {
-                    RES.CORES: 0,
-                    RES.MEMORY: 0,
-                    "parent_cluster": parent_cluster,
-                    "name": name,
-                    "power_state": new_power_state
-                }
-                USER_LOGGER_.debug(f"{self.email} - New VM {uuid} being tracked.")
-
-                if new_power_state == PowerState.ON:
-                    # The resources will be updated in _update_all_resources
-                    self.powered_on_vms.add(uuid)
-                    self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff)
+                # New VM
                 else:
-                    self.powered_off_vms.add(uuid)
-                _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
-                            old_power_state=PowerState.UNKNOWN)
+                    self.vm_resource_tracker[uuid] = {
+                        RES.CORES: 0,
+                        RES.MEMORY: 0,
+                        "parent_cluster": parent_cluster,
+                        "name": name,
+                        "power_state": new_power_state
+                    }
+                    USER_LOGGER_.debug(f"{self.email} - New VM {uuid} being tracked.")
 
-            self._check_consistency()
-        except Exception as ex:
-            USER_LOGGER_.exception(ex)
-            raise ex
+                    if new_power_state == PowerState.ON:
+                        # The resources will be updated in _update_all_resources
+                        self.powered_on_vms.add(uuid)
+                        self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff)
+                    else:
+                        self.powered_off_vms.add(uuid)
+                        # Check if the Parent cluster is already being tracked. Since the new VM is powered OFF, the resources will not be updated
+                        self._back_populate_vm_resources(uuid, parent_cluster, 0, 0)
+                    _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
+                                old_power_state=PowerState.UNKNOWN)
+
+                self._check_consistency()
+            except Exception as ex:
+                USER_LOGGER_.exception(ex)
+                raise ex
 
     def update_prefix(self, prefix, op) -> typing.Optional[typing.List]:
         """Adds or removes a prefix for the user.
@@ -333,7 +336,7 @@ class User:
             cached_resources = self.cluster_resource_tracker.get(cluster_name, None)
             if cached_resources is None:
                 raise InconsistentCacheError(f"UserCache: Cache for the cluster"
-                                             f" {cluster_name} not found!")
+                                             f" {cluster_name} not found! User: {self.email}")
             if int(cached_resources[RES.CORES]) != self.cluster_resource_tracker[cluster_name][RES.CORES]:
                 raise InconsistentCacheError(f"UserCache: Number of cores alloc for the user {self.email}"
                                              f" on the cluster {cluster_name} is "

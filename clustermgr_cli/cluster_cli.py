@@ -38,6 +38,21 @@ def list_clusters():
         pt.add_row([name])
     click.echo(pt)
 
+@cluster.command(name="info")
+@click.argument('cluster_name')
+def cluster_info(cluster_name):
+    res = requests.get(LOCAL_ENDPOINT + CLUSTER_EP + f'/{cluster_name}', headers=CLI_HEADERS)
+    if res.status_code == HTTPStatus.NOT_FOUND:
+        click.echo(f"Cluster with name {cluster_name} not found in the cache!")
+        return
+    cluster_info = res.json()
+
+    if cluster_info['health_status']['memory_state'] != "HEALTHY":
+        click.secho(f"Cluster {cluster_name} is not healthy in Memory", fg='red')
+    else:
+        click.secho(f"Cluster {cluster_name} is healthy in Memory", fg='green')
+    
+
 @cluster.command(name="add")
 @click.argument('cluster_name')
 @click.argument('ip')

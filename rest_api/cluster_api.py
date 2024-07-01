@@ -24,6 +24,12 @@ def list_clusters():
     global_cache = GlobalClusterCache()
     return jsonify(global_cache.get_clusters()), HTTPStatus.OK
 
+@cluster_blue_print.route("/clusters/<cluster_name>", methods=[HTTPMethod.GET])
+def get_cluster_info(cluster_name):
+    global_cache = GlobalClusterCache()
+    if cluster_name in global_cache.GLOBAL_CLUSTER_CACHE:
+        return jsonify(global_cache.GLOBAL_CLUSTER_CACHE[cluster_name].summary(summary_verbosity=2)), HTTPStatus.OK
+    return jsonify({'message': f'Cluster with name "{cluster_name}" not found in the cache'}), HTTPStatus.NOT_FOUND
 
 @cluster_blue_print.route("/clusters", methods=[HTTPMethod.POST])
 def add_cluster():
@@ -46,7 +52,7 @@ def delete_cluster(cluster_name):
 
 
 @cluster_blue_print.route("/clusters/<cluster_name>/vms", methods=[HTTPMethod.GET])
-def get_cluster_info(cluster_name):
+def get_cluster_vm_info(cluster_name):
     arguments = request.args.to_dict()
     global_cache = GlobalClusterCache()
     cluster_vm_info = global_cache.get_cluster_info(cluster_name=cluster_name, arguments=arguments)

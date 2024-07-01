@@ -1,132 +1,150 @@
 users:
-  # - name: Anjali Mishra
-  #   email: anjali.mishra@nutanix.com
-  #   prefix:
-  #     - anjali
-  #     - anjali.m
-  #   quota:
-  #     - tade:
-  #         cores: 1
-  #         memory: 1
-  #     - tomahawk:
-  #         cores: 1
-  #         memory: 1
-  #     - global:
-  #         cores: 2
-  #         memory: 2
-  # - name: Ajay Gupta
-  #   email: ajay.gupta@nutanix.com
-  #   prefix:
-  #     - ajay
-  #   quota:
-  #     - tade:
-  #         cores: 8
-  #         memory: 12
-  #     - tomahawk:
-  #         cores: 9
-  #         memory: 15
-  #     - global:
-  #         cores: 25
-  #         memory: 100
-  # - name: Madhur Jain
-  #   email: madhur.jain@nutanix.com
-  #   prefix:
-  #     - madhur
-  #     - madhur_jain
-  #   quota:
-  #     - tade:
-  #         cores: 8
-  #         memory: 12
-  #     - tomahawk:
-  #         cores: 9
-  #         memory: 15
-  #     - global:
-  #         cores: 25
-  #         memory: 100
-  # - name: Mo Pu
-  #   email: mo.pu@nutanix.com
-  #   prefix:
-  #     - mopu
-  #   quota:
-  #     - tade:
-  #         cores: 8
-  #         memory: 12
-  #     - tomahawk:
-  #         cores: 9
-  #         memory: 15
-  #     - global:
-  #         cores: 25
-  #         memory: 100
-  # - name: Daljit Singh
-  #   email: daljit.singh@nutanix.com
-  #   prefix:
-  #     - daljit
-  #   quota:
-  #     - tade:
-  #         cores: 8
-  #         memory: 12
-  #     - tomahawk:
-  #         cores: 9
-  #         memory: 15
-  #     - global:
-  #         cores: 25
-  #         memory: 100
-  # - name: Manav Rajvanshi
-  #   email: manav.rajvanshi@nutanix.com
-  #   prefix:
-  #     - manav
-  #   quota:
-  #     - tade:
-  #         cores: 8
-  #         memory: 12
-  #     - tomahawk:
-  #         cores: 9
-  #         memory: 15
-  #     - global:
-  #         cores: 25
-  #         memory: 100
-  # - name: Sahil Garg
-  #   email: sahil.garg1@nutanix.com
-  #   prefix:
-  #     - sahil-garg1
-  #   quota:
-  #     - tade:
-  #         cores: 8
-  #         memory: 12
-  #     - tomahawk:
-  #         cores: 9
-  #         memory: 15
-  #     - global:
-  #         cores: 25
-  #         memory: 100
-  # - name: Stefan Djuric
-  #   email: stefan.djuric@nutanix.com
-  #   prefix:
-  #     - stefan
-  #   quota:
-  #     - tade:
-  #         cores: 8
-  #         memory: 12
-  #     - tomahawk:
-  #         cores: 9
-  #         memory: 15
-  #     - global:
-  #         cores: 25
-  #         memory: 100
-  # - name: Tinku Kumar
-  #   email: tinku.kumar@nutanix.com
-  #   prefix:
-  #     - tinku
-  #   quota:
-  #     - tade:
-  #         cores: 8
-  #         memory: 12
-  #     - tomahawk:
-  #         cores: 9
-  #         memory: 15
-  #     - global:
-  #         cores: 25
-  #         memory: 100
+  - name: Anjali Mishra
+    email: anjali.mishra@nutanix.com
+    prefix:
+      - anjali
+      - anjali.m
+    quota:
+      - tade:
+          cores: 1
+          memory: 1
+      - tomahawk:
+          cores: 1
+          memory: 1
+      - global:
+          cores: 2
+          memory: 2
+  - name: Ajay Gupta
+    email: ajay.gupta@nutanix.com
+    prefix:
+      - ajay
+    quota:
+      - tade:
+          cores: 8
+          memory: 12
+      - tomahawk:
+          cores: 9
+          memory: 15
+      - global:
+          cores: 25
+          memory: 100
+  - name: Madhur Jain
+    email: madhur.jain@nutanix.com
+    prefix:
+      - madhur
+      - madhur_jain
+    quota:
+      - tade:
+          cores: 8
+          memory: 12
+      - tomahawk:
+          cores: 9
+          memory: 15
+      - global:
+          cores: 25
+          memory: 100
+  - name: Mo Pu
+    email: mo.pu@nutanix.com
+    prefix:
+      - mopu
+    quota:
+      - tade:
+          cores: 8
+          memory: 12
+      - tomahawk:
+          cores: 9
+          memory: 15
+      - global:
+          cores: 25
+          memory: 100
+  - name: Daljit Singh
+    email: daljit.singh@nutanix.com
+    prefix:
+      - daljit
+    quota:
+      - tade:
+          cores: 8
+          memory: 12
+      - tomahawk:
+          cores: 9
+          memory: 15
+      - global:
+          cores: 25
+          memory: 100
+  - name: Manav Rajvanshi
+    email: manav.rajvanshi@nutanix.com
+    prefix:
+      - manav
+    quota:
+      - tade:
+          cores: 8
+          memory: 12
+      - tomahawk:
+          cores: 9
+          memory: 15
+      - global:
+          cores: 25
+          memory: 100
+  - name: Sahil Garg
+    email: sahil.garg1@nutanix.com
+    prefix:
+      - sahil-garg1
+    quota:
+      - tade:
+          cores: 8
+          memory: 12
+      - tomahawk:
+          cores: 9
+          memory: 15
+      - global:
+          cores: 25
+          memory: 100
+  - name: Stefan Djuric
+    email: stefan.djuric@nutanix.com
+    prefix:
+      - stefan
+    quota:
+      - tade:
+          cores: 8
+          memory: 12
+      - tomahawk:
+          cores: 9
+          memory: 15
+      - global:
+          cores: 25
+          memory: 100
+  - name: Tinku Kumar
+    email: tinku.kumar@nutanix.com
+    prefix:
+      - tinku
+    quota:
+      - tade:
+          cores: 8
+          memory: 12
+      - tomahawk:
+          cores: 9
+          memory: 15
+      - global:
+          cores: 25
+          memory: 100
+  - name: Eric Schneider
+    email: eric.schneider@nutanix.com
+    prefix:
+      - eric
+      - eric.s
+    quota:
+      - global:
+          cores: 100
+          memory: 50
+  - name: Abhishek Talesra
+    email: abhishek.talesara@nutanix.com
+    prefix:
+      - abhi
+      - abhi.t
+    quota:
+      - global:
+          cores: 10
+          memory: 19
   - name: Sahil Naphade
     email: sahil.naphade@nutanix.com
     prefix:
@@ -136,21 +154,3 @@ users:
       - global:
           cores: 1
           memory: 4
-  # - name: Eric Schneider
-  #   email: eric.schneider@nutanix.com
-  #   prefix:
-  #     - eric
-  #     - eric.s
-  #   quota:
-  #     - global:
-  #         cores: 100
-  #         memory: 50
-  # - name: Abhishek Talesra
-  #   email: abhishek.talesara@nutanix.com
-  #   prefix:
-  #     - abhi
-  #     - abhi.t
-  #   quota:
-  #     - global:
-  #         cores: 10
-  #         memory: 19
