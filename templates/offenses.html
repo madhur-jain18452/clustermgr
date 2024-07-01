@@ -65,7 +65,7 @@
         <!-- <a href="#" class="w3-bar-item w3-button">Link 3</a> -->
       </div>
     <h2 style="padding-left: 2%; margin-top: 5%;">List of Users over-utilizing their quotas</h2>
-    <div >
+    <div>
         <table class="w3-table w3-bordered">
             <tr>
                 <!-- <th>Sr. No.</th> -->
@@ -94,7 +94,7 @@
     <div style="margin: 5px;">
         {% set mem_health = offenses.get("health_status", {}).get(cname).get("memory_state", "UNKNOWN") %}
         {% set color = "red" if mem_health == "UNHEALTHY" else "GoldenRod" if mem_health == "CRITICAL" else "green" if mem_health == "HEALTHY" else "DarkRed" %}
-        <button type="button" class="collapsible" style="color: {{ color }}">{{ cname }} : {{ vm_info_list | length }} VMs -- Memory Health: {{ mem_health }}</button>
+        <button type="button" class="collapsible" style="color: {{ color }};">{{ cname }} : {{ vm_info_list | length }} VMs -- Memory Health: {{ mem_health }}</button>
         </button>
         <div class="content">
             <table class="w3-table w3-striped w3-bordered">

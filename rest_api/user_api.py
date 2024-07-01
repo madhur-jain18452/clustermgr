@@ -9,7 +9,7 @@ Author:
 
 import json
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template
 from http import HTTPStatus, HTTPMethod
 
 from cluster_manager.global_cluster_cache import GlobalClusterCache
@@ -20,7 +20,10 @@ user_blue_print = Blueprint('user', __name__)
 @user_blue_print.route("/users", methods=[HTTPMethod.GET])
 def list_users():
     global_cache = GlobalClusterCache()
-    return jsonify(global_cache.get_users()), HTTPStatus.OK
+    if 'Accept' in request.headers and request.headers['Accept'] == 'application/json':
+        return jsonify(global_cache.get_users()), HTTPStatus.OK
+    else:
+        return render_template('users.html', users=global_cache.get_users())
 
 
 @user_blue_print.route("/users/<email>", methods=[HTTPMethod.POST,

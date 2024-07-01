@@ -88,6 +88,7 @@ class User:
                                                  RES.MEMORY: (quota_json.get(RES.MEMORY, -1)*BINARY_CONVERSION_FACTOR)}
         # Verify if the global quota is provided, If not, the total
         # allowed resources will be the limit
+        # FIXME what to do if the cluster quotas are more than the global quotas? Also need to fix when trying patching the resources
         if self.global_mem_quota == 0 or self.global_cores_quota == 0:
             USER_LOGGER_.warning(f"Global quota for the user {self.email}"
                                  f"not specified. Populating with the "
