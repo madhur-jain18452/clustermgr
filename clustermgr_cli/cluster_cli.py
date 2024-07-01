@@ -15,7 +15,7 @@ from http import HTTPStatus
 from prettytable import PrettyTable
 from urllib import parse
 
-from caching.server_constants import PowerState
+from caching.server_constants import PowerState, HealthStatus
 from .constants import CLUSTER_EP, LOCAL_ENDPOINT, CLI_HEADERS
 from tools.helper import convert_mb_to_gb
 
@@ -46,11 +46,20 @@ def cluster_info(cluster_name):
         click.echo(f"Cluster with name {cluster_name} not found in the cache!")
         return
     cluster_info = res.json()
-
-    if cluster_info['health_status']['memory_state'] != "HEALTHY":
-        click.secho(f"Cluster {cluster_name} is not healthy in Memory", fg='red')
+    if 'message' in cluster_info:
+        click.secho(cluster_info['message'], fg='red')
+        return
+    mem_state = cluster_info['health_status']['memory_state']
+    mem_perc = cluster_info['health_status']['memory_perc']
+    if mem_state == HealthStatus.HEALTHY[2]:
+        click.secho(f"Cluster '{cluster_name}' is HEALTHY.\n\tMemory Used: {mem_perc:.3f}%", fg=HealthStatus.HEALTHY[3])
+    elif mem_state == HealthStatus.CRITICAL[2]:
+        click.secho(f"Cluster '{cluster_name}' is CRITICAL.\n\tMemory Used: {mem_perc:.3f}%", fg=HealthStatus.CRITICAL[3])
+    elif mem_state == HealthStatus.UNHEALTHY[2]:
+        click.secho(f"Cluster '{cluster_name}' is UNHEALTHY.\n\tMemory Used: {mem_perc:.3f}%", fg=HealthStatus.UNHEALTHY[3])
     else:
-        click.secho(f"Cluster {cluster_name} is healthy in Memory", fg='green')
+        click.secho(f"Cluster '{cluster_name}' is UNKNOWN.", fg='red')
+        
     
 
 @cluster.command(name="add")
@@ -85,7 +94,7 @@ def add_cluster(cluster_name):
         click.echo(res.json())
 
 
-@cluster.command()
+@cluster.command(name='list-vms')
 @click.argument('cluster_name')
 @click.option('--resources', '-r', is_flag=True, help="Show the resources "
                                                       "consumed by the 'running' VMs"

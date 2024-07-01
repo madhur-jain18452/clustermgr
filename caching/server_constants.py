@@ -132,8 +132,24 @@ class OffenseKeys(object):
     OFFENDING_USERS = "users"
 
 class HealthStatus(object):
+    """To calculate the health status of the cluster based on the health score
+        First value is the lower bound (inclusive)
+        second value is the upper bound (exclusive)
+        third value is the status str
+        fourth value is the color
+    """
     HEALTHY = (0, 50, "HEALTHY", "green")
     CRITICAL = (50, 75, "CRITICAL", "yellow")
     UNHEALTHY = (75, 100, "UNHEALTHY", "red")
     UNKNOWN = "UNKNOWN"
     NOT_APPLICABLE = "NOT_APPLICABLE"
+
+    def get_health_status(score):
+        if HealthStatus.HEALTHY[0] <= score < HealthStatus.HEALTHY[1]:
+            return HealthStatus.HEALTHY
+        elif HealthStatus.CRITICAL[0] <= score < HealthStatus.CRITICAL[1]:
+            return HealthStatus.CRITICAL
+        elif HealthStatus.UNHEALTHY[0] <= score < HealthStatus.UNHEALTHY[1]:
+            return HealthStatus.UNHEALTHY
+        return HealthStatus.UNKNOWN
+

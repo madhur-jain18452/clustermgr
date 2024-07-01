@@ -33,7 +33,7 @@ init_eval_local:
 	--refresh-offense $(REFRESH_OFFENSE) \
 	--retain-offense $(RETAIN_OFFENSES) \
 	--offense-checkback $(OFFENSE_CHECKBACK_INTERVAL) \
-	--eval --debug
+	--eval
 
 init_prod:
 	@echo "Initializing $(APP_NAME) on $(REMOTE_HOST) for user $(REMOTE_USER)"
