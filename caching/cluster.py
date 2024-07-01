@@ -48,11 +48,11 @@ class Cluster:
     """
 
     def __init__(self, name, ip, username, password):
-        # TODO Have UUID
         self.name = name
         self._ip_address = ip
         self.available_memory = 0 #  Stored in Bytes
         self.available_cores = 0
+        # Populated by querying the Prism API
         self.id = ""
         self.cluster_uuid = ""
         self.hosts = []
@@ -98,7 +98,7 @@ class Cluster:
 
         self.abs_available_memory = 0
         self.abs_available_cores = 0
-        cluster_info_populated = False
+        self.cluster_info_populated = False
 
         self._fetch_cluster_host_info()
 
@@ -116,6 +116,17 @@ class Cluster:
         """Populates the Cluster's hosts, combined and individual host
             resources and UUIDs
         """
+        # Get the Cluster UUID, as it is required to power off a VM
+        try:
+            status_code, resp_json = self._request_cluster(self.prism_rest_ep + CLUSTER_EP)
+        except requests.exceptions.Timeout as ex:
+            self.cluster_info_populated = False
+            CLUSTER_CACHE_LOGGER_.exception(f"Timeout occurred: {ex}")
+            return
+        self.cluster_uuid = resp_json['cluster_uuid']
+        self.id = resp_json['id']
+
+        # Populate the hosts and their resources
         mem = 0
         cores = 0
         try:
@@ -124,6 +135,7 @@ class Cluster:
             self.cluster_info_populated = False
             CLUSTER_CACHE_LOGGER_.exception(f"Fetching hosts information failed for the cluster {self.name} : {ex}")
             return
+
         for entity in resp_json['entities']:
             temp_mem = entity.get('memory_capacity_in_bytes', 0)
             if temp_mem is not None:
@@ -141,15 +153,7 @@ class Cluster:
         self.abs_available_memory = bytes_to_mb(mem)
         self.abs_available_cores = cores
 
-        # Get the Cluster UUID
-        try:
-            status_code, resp_json = self._request_cluster(self.prism_rest_ep + CLUSTER_EP)
-        except requests.exceptions.Timeout as ex:
-            self.cluster_info_populated = False
-            CLUSTER_CACHE_LOGGER_.exception(f"Timeout occurred: {ex}")
-            return
-        self.cluster_uuid = resp_json['cluster_uuid']
-        self.id = resp_json['id']
+        # If everything is successful, mark the information is populated
         self.cluster_info_populated = True
         pass
 

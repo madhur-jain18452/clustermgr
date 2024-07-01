@@ -17,6 +17,7 @@ import time
 from datetime import date, datetime
 from http import HTTPStatus
 
+from caching.server_constants import is_dnd
 from common.constants import ONE_DAY_IN_SECS, UserKeys, Resources as res
 from cluster_manager.global_cluster_cache import GlobalClusterCache
 from custom_exceptions.exceptions import SameTimestampError
@@ -128,7 +129,10 @@ class ClusterMonitor:
     def take_action_offenses(self):
         """Function that takes action on the offenses calculated
         For each user, we try to bring the individual cluster utilization under\
-            control marking the VMs and powering them off
+            control marking the VMs and powering them off.
+            First checks if any non-DND VMs can be turned off.
+                If not sufficient, check if the overriding is allowed.
+                    If overriding is allowed, checks and powers OFF the DND VMs.
         After all clusters are under control, the code checks if the global utilization under control.\
             If not, checks the VMs across all clusters and marks them for power off greedily.
         """
@@ -184,7 +188,8 @@ class ClusterMonitor:
 
         def _mark_vm_power_off_greedy(already_marked_set, _sorted_vm_list,
                                gl_core_util, gl_mem_util, cl_name=None, cl_core_util=None,
-                               cl_mem_util=None, check_cores=True, check_mem=False):
+                               cl_mem_util=None, check_cores=True, check_mem=False,
+                               skip_dnd=True):
             """Utility function that marks the VMs for power off
             Args:
                 already_marked_set: Set of VMs that are already marked. The function will add to this set
@@ -195,8 +200,12 @@ class ClusterMonitor:
                 cl_core_util (Optional): Cluster core utilization
                 cl_mem_util (Optional): Cluster memory utilization
                 check_cores: Boolean flag to check if the we are getting (only) cores under control
-                check_mem: Boolean flag to check if we are getting (only) memory under control"""
+                check_mem: Boolean flag to check if we are getting (only) memory under control
+                skip_dnd: Boolean flag to skip the DND VMs
+            """
             for _vm in _sorted_vm_list:
+                if is_dnd(_vm['name']) and skip_dnd:
+                    continue
                 if (_vm['uuid'], _vm['parent_cluster']) not in already_marked_set:
                     # Update the resource over_utils to check if sufficient
                     if cl_core_util is not None:
@@ -287,7 +296,7 @@ class ClusterMonitor:
                     # We want to take care of the individual clusters first,
                     # and then see if the user is still offending global quota
                     continue
-
+                # First check if any VMs without DND can be turned off
                 user_vm_list_this_cluster = _user_json_to_list(user_json, cname)
                 # cm_logger.info(f"VM list for the user {user_email}: "
                 #                f"{json.dumps(user_vm_list_this_cluster)}")
@@ -333,6 +342,31 @@ class ClusterMonitor:
                             cl_core_util=cl_over_util_core,
                             cl_mem_util=cl_over_util_mem,
                             check_cores=False, check_mem=True)
+                """We have went through all the Non-DND VMs in the cluster to power OFF for this user
+                    If the user is still over-subscribed, override the DND mark if provided in the OS env else skip
+                """
+                if cl_over_util_mem > 0 or cl_over_util_core > 0:
+                    if os.env.get("override_dnd", "False").lower() in ["true", 'yes']:
+                        cm_logger.info(f"User {user_email} is still over-utilizing"
+                                       f" the cluster {cname} by {cl_over_util_core}"
+                                       f" cores and {cl_over_util_mem} memory."
+                                       f" Considering the DND VMs to power OFF as override is set.")
+                        sorted_list = sorted(user_vm_list_this_cluster,
+                                                    key=lambda x: x[res.MEMORY]+x[res.CORES],
+                                                    reverse=True)
+                        cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem = \
+                            _mark_vm_power_off_greedy(
+                                user_vms_marked_power_off, sorted_list,
+                                gl_over_util_core, gl_over_util_mem,
+                                cl_name=cname,
+                                cl_core_util=cl_over_util_core,
+                                cl_mem_util=cl_over_util_mem,
+                                check_cores=False, check_mem=True, skip_dnd=True)
+                    else:
+                        cm_logger.info(f"User {user_email} is still over-utilizing"
+                                       f" the cluster {cname} by {cl_over_util_core}"
+                                       f" cores and {cl_over_util_mem} memory."
+                                       f" DND VMs are not being considered.")
             # All the clusters are getting under control for this user.
             # Check if the global consumption is under control or not.
             if gl_over_util_core > 0 or gl_over_util_mem > 0:
@@ -355,6 +389,19 @@ class ClusterMonitor:
                             user_vms_marked_power_off, all_vm_list,
                             gl_over_util_core, gl_over_util_mem,
                             check_cores=False, check_mem=True)
+                if gl_over_util_core > 0 or gl_over_util_mem > 0:
+                    cm_logger.error(f"User {user_email} is still over-utilizing the global quota"
+                                    f" by Cores: {gl_over_util_core}, Memory: {gl_over_util_mem}")
+                    if os.env.get("override_dnd", "False").lower() in ["true", 'yes']:
+                        cm_logger.info("Considering the DND VMs to power OFF as override is set.")
+                        all_vm_list = sorted(all_vm_of_user, key=lambda x: x[res.CORES]+x[res.CORES], reverse=True)
+                        cl_over_util_core, cl_over_util_mem, gl_over_util_core, gl_over_util_mem =\
+                            _mark_vm_power_off_greedy(
+                                user_vms_marked_power_off, all_vm_list,
+                                gl_over_util_core, gl_over_util_mem,
+                                check_cores=False, check_mem=True, skip_dnd=True)
+                    else:
+                        cm_logger.warning(f"Not considering the DND VMs to power OFF as override is not set. User: {user_email}")
             list_of_vm_uuid_cnames = list(user_vms_marked_power_off)
             cm_logger.info(f"User {user_email}, VMs to shut down: "
                            f"{','.join([f'{vm_set[1]}:{vm_set[0]}'

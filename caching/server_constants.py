@@ -71,7 +71,8 @@ ERA_USER = "era"
 ERA_ENDPOINT = "/era/v0.9"
 ERA_DBSERVER_EP = "/dbservers"
 CLUSTER_EP = "/cluster"
-ERA_SERVER_NAME_REGEX = r"^[a-zA-Z]+(?:[_\.][a-zA-Z]+)*_(era|ndb)(?:[a-zA-Z0-9_-]*)?(?:.*do_not_delete)?$"
+ERA_SERVER_NAME_REGEX = r"^[a-zA-Z]+(?:[_\.][a-zA-Z]+)*_(era|ndb)(?:[a-zA-Z0-9_-]*)?$"
+DND_SERVER_NAME_REGEX = r"do_not_delete|dont_delete|dnd|do_not_delete_era|dont_delete_era|dnd_era|do_not_delete_ndb|dont_delete_ndb|dnd_ndb"
 
 
 class DBServerStatus(object):
@@ -125,6 +126,17 @@ def check_vm_name_to_skip(name):
     if pattern.match(name):
         return True
     return False
+
+
+def is_dnd(name):
+    # Define the regex pattern
+    pattern = re.compile(DND_SERVER_NAME_REGEX, re.IGNORECASE)
+
+    # Check if the name matches the pattern
+    if pattern.match(name):
+        return True
+    return False
+
 
 class OffenseKeys(object):
     OFFENDING_VM = "vms"

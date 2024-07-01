@@ -38,6 +38,26 @@ def list_schedules():
         sr_no += 1
     click.echo(pt)
 
+@tool.command(name="override-dnd")
+@click.option('--yes', is_flag=True, help="Allow overriding the DND for powering off the VMs")
+@click.option('--no', is_flag=True, help="Do not overriding the DND for powering off the VMs")
+def update_override_dnd(yes, no):
+    """List of all the clusters in the cache
+    """
+    if yes and no:
+        click.secho("Cannot provide both the options", fg='red')
+        return
+    if not yes and not no:
+        click.secho("Provide either of 'yes' or 'no'", fg='red')
+        return
+    json_body = {'new_override_str': 'true' if yes else 'false' if no else 'false'}
+    res = requests.put(LOCAL_ENDPOINT + TOOL_EP + "/override_dnd", headers=CLI_HEADERS, json=json.dumps(json_body))
+    if res.status_code == 200:
+        click.secho(res.json()['message'], fg='green')
+    else:
+        click.secho(res.json()['message'], fg='red')
+
+
 @tool.command(name="update-cache-refresh")
 @click.argument("new_frequency_str")
 def update_cache_refresh_timings(new_frequency_str):

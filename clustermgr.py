@@ -111,6 +111,8 @@ if __name__ == "__main__":
     parser.add_argument('--eval', action='store_true', help="Run the tool "
                                                             "in Eval mode (does not power-off "
                                                             "or remove NIC from the VM")
+    parser.add_argument('--override-dnd', action='store_true', help="Override the "
+                        "DND check for powering OFF the VMs")
     args = parser.parse_args()
     
     cluster_config, user_config = verify_and_parse_config(args.cluster_config, args.user_config)
@@ -149,6 +151,11 @@ if __name__ == "__main__":
     else:
         print("Running in Prod mode")
         os.environ.setdefault('eval_mode', 'False')
+    
+    if args.override_dnd:
+        os.environ.setdefault('override_dnd', 'True')
+    else:
+        os.environ.setdefault('override_dnd', 'False')
 
     if args.offense_checkback:
         number_of_secs = convert_freq_str_to_seconds(args.offense_checkback)

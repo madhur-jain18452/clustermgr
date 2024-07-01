@@ -64,7 +64,7 @@ class NuVM:
     # TODO username and Password handling; maybe we can store it in the memory
     #  after verifying with a list of all available permutations
     # TODO Should we parse the config_json and extract info; or just store the
-    #  whole thing?
+    #  whole thing? -- As of now, storing the whole raw JSON
     def __init__(self, config_json, parent_cluster_name):
         """Sets up the Nutanix VMs based on the config received from
         the PRISM element

@@ -35,6 +35,28 @@ def list_tasks():
         })
     return jsonify(job_list), HTTPStatus.OK
 
+
+@tool_blue_print.route("/tool/override_dnd", methods=[HTTPMethod.PUT])
+def update_dnd_override():
+    """Updates the Do Not Disturb override for the cluster when performing
+        garbage collection
+    """
+    import os
+    args = json.loads(request.json)
+    print(args)
+    override_str = args['new_override_str']
+    if override_str.lower() not in ["true", "yes", "no", "false"]:
+        return jsonify({'message': f'Invalid value for override "{override_str}"'}), \
+            HTTPStatus.BAD_REQUEST
+    try:
+        os.environ.update({'override_dnd': override_str})
+    except Exception as ex:
+        return jsonify({'message': f'Override update failed. Error: {ex}'}), \
+            HTTPStatus.INTERNAL_SERVER_ERROR
+    return jsonify({'message': f'Override update successful. Set to "{override_str}"'}), \
+            HTTPStatus.OK
+
+
 @tool_blue_print.route("/tool/cache_refresh", methods=[HTTPMethod.PUT])
 def update_cache_refresh():
     """
@@ -56,7 +78,7 @@ def update_cache_refresh():
     task_mgr.add_repeated_task(global_cache, "rebuild_cache", freq_json,
                                CACHE_REBUILD_TASK_TAG,
                                task_name="Refreshing cluster cache")
-    return (jsonify({'message': 'New Cache Refresh job add succsful '
+    return (jsonify({'message': 'New Cache Refresh job add successful '
                      f'for frequency {json.dumps(freq_json)}'}),
             HTTPStatus.OK)
 
