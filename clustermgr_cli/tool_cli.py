@@ -40,9 +40,9 @@ def list_schedules():
 
 @tool.command(name="override-dnd")
 @click.option('--yes', is_flag=True, help="Allow overriding the DND for powering off the VMs")
-@click.option('--no', is_flag=True, help="Do not overriding the DND for powering off the VMs")
+@click.option('--no', is_flag=True, help="Do not override the DND for powering off the VMs")
 def update_override_dnd(yes, no):
-    """List of all the clusters in the cache
+    """Update the Override flag to consider DND VMs for powering off
     """
     if yes and no:
         click.secho("Cannot provide both the options", fg='red')
