@@ -144,7 +144,8 @@ def update(email, name, remove_prefixes, add_prefixes, total, cluster):
 def list_vms(email, resources, cluster):
     """List VMs for a particular user
     """
-    from caching.cluster import PowerState, convert_mb_to_gb
+    from caching.cluster import PowerState
+    from tools.helper import convert_mb_to_gb
     user_url = BASE_USERS_EP + "/" + email + "/vms"
     if cluster:
         user_url += f"?cluster={cluster}"
