@@ -7,10 +7,10 @@ REMOTE_DIR = /tmp/$(APP_NAME)
 
 CLUSTER_CFG_FILE ?= clusters.yml
 USER_CFG_FILE ?= users.yaml
-CACHE_REFRESH_INTERVAL ?= 2h
-MAIL_FREQUENCY ?= @1000
-ACTION_FREQUENCY ?= @1700
-REFRESH_OFFENSE ?= 4h
+CACHE_REFRESH_INTERVAL ?= 3m
+MAIL_FREQUENCY ?= 3m
+ACTION_FREQUENCY ?= 4m
+REFRESH_OFFENSE ?= 2m
 RETAIN_OFFENSES ?= 7d
 OFFENSE_CHECKBACK_INTERVAL ?= 2d
 
@@ -20,7 +20,7 @@ deploy:
 	@echo "Deploying to $(REMOTE_USER)@$(REMOTE_HOST):$(REMOTE_DIR)"
 		ssh $(REMOTE_USER)@$(REMOTE_HOST) "\
 			mkdir -p $(REMOTE_DIR) && \
-			dnf install python3.12 -y"
+			dnf install python3.12 logrotate -y"
 		rsync -av --exclude='*.pyc' --exclude='venv/' --exclude='*.log' --exclude='.git/' --exclude='.idea/' --exclude='.vscode/' --exclude='*/__py__cache' ./ $(REMOTE_USER)@$(REMOTE_HOST):$(REMOTE_DIR)/
 	@echo "Deployed to $(REMOTE_HOST):$(REMOTE_DIR)"
 

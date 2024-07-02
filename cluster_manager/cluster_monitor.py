@@ -24,7 +24,7 @@ from custom_exceptions.exceptions import SameTimestampError
 
 cm_logger = logging.getLogger(__name__)
 cm_logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler("cmgr_cluster_monitor.log", mode='a')
+handler = logging.FileHandler("cmgr_cluster_monitor.log", mode='w')
 formatter = logging.Formatter("%(filename)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 cm_logger.addHandler(handler)
@@ -39,10 +39,10 @@ class ClusterMonitor:
     _g_c_monitor_lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
-        if cls._g_cluster_monitor_instance is None:
+        if not cls._g_cluster_monitor_instance:
             with cls._g_c_monitor_lock:
-                if cls._g_cluster_monitor_instance is None:
-                    cls._g_cluster_monitor_instance = super().__new__(cls)
+                if not cls._g_cluster_monitor_instance:
+                    cls._g_cluster_monitor_instance = super(ClusterMonitor, cls).__new__(cls)
         return cls._g_cluster_monitor_instance
 
     def __init__(self):
@@ -411,6 +411,11 @@ class ClusterMonitor:
         # We have all the VMs that need to be powered off in the cluster.
         # Perform actual power-off and NIC removal.
         # BACKLOG: Can do multi-threaded
+        cm_logger.info("Processing the VMs whose owners are unknown")
+        vm_without_prefix = continued_offenses.get('vm_without_prefix', [])
+        # cm_logger.info(f"Although not processing them, this is the list of VMs to turn off: {json.dumps(vm_uuids_to_turn_off)}")
+        # cm_logger.info(f"Although not processing them, this is the list of VMs without prefix: {json.dumps(vm_without_prefix)}")
+
         if os.environ.get('eval_mode', "False").lower() not in ['true', 'yes']:
             for vm_uuid, cname in vm_uuids_to_turn_off:
                 po_status, po_msg = global_cache.perform_cluster_vm_power_change(
@@ -435,3 +440,30 @@ class ClusterMonitor:
                                     f"{po_msg['message']}")
                     continue
 
+            #  Check the VMs whose owners are unknown
+            #  This is stored as a {cluster1: [(uuid1, vm_name1), (uuid2, vm_name2)]}
+            cm_logger.info("Processing the VMs whose owners are unknown")
+            vm_without_prefix = continued_offenses.get('vm_without_prefix', [])
+            for cname, vm_list in vm_without_prefix.items():
+                for vm_uuid, vm_name in vm_list:
+                    po_status, po_msg = global_cache.perform_cluster_vm_power_change(
+                        cluster_name=cname, vm_info={'uuid': vm_uuid}
+                    )
+                    if po_status == HTTPStatus.OK:
+                        cm_logger.info(f"PowerOFF:SUCC Cluster {cname}, VM UUID: {vm_uuid}"
+                                    f". Attempting NIC Removal.")
+                        nic_status, nic_msg = global_cache.perform_cluster_vm_nic_remove(
+                            cluster_name=cname, vm_info={'uuid': vm_uuid}
+                        )
+                        if nic_status == HTTPStatus.OK:
+                            cm_logger.info(f"PowerOFF:SUCC RemoveNIC:SUCC Cluster "
+                                        f"{cname}, VM UUID: {vm_uuid}")
+                        else:
+                            cm_logger.warning(f"PowerOFF:SUCC RemoveNIC:FAIL Cluster "
+                                            f"{cname}, VM UUID: {vm_uuid}. Error: "
+                                            f"{nic_msg['message']}")
+                    else:
+                        cm_logger.error(f"PowerOFF:FAIL RemoveNIC:-NA- Cluster "
+                                    f"{cname}, VM UUID: {vm_uuid}. Error: "
+                                    f"{po_msg['message']}")
+                        continue
