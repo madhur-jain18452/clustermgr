@@ -108,7 +108,11 @@
                         {{ user.get('global_resources_quota', {}).get('cores', '-') }}
                     </td>
                     <td rowspan="{{ rspan if rspan > 0 else 1 }}">
-                        {{ user.get('global_resources_quota', {}).get('memory', '-') }}
+                        {% if user.get('global_resources_quota', {}).get('memory') %}
+                            {{ user.get('global_resources_quota', {}).get('memory') / 1024 }} GB
+                        {% else %}
+                            -
+                        {% endif %}
                     </td>
                     {% if rspan > 0 %}
                     {% set first = true %}
@@ -118,7 +122,12 @@
                         {% endif %}
                             <td>{{ cname }}</td>
                             <td>{{ quotas.get('cores', '-') }}</td>
-                            <td>{{ quotas.get('memory', '-') }}</td>
+                            <td>{% if quotas.get('memory') %}
+                                    {{ quotas.get('memory') / 1024 }} GB
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
                         </tr>
                         {% set first = false %}
                     {% endfor %}

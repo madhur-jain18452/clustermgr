@@ -493,7 +493,7 @@ class GlobalClusterCache(object):
                 user_list.append(user_info)
             else:
                 user_list.append(user_info)
-        return user_list
+        return sorted(user_list, key=lambda x: x[UserKeys.EMAIL])
 
     def get_cluster_info(self, cluster_name, arguments) -> typing.Dict:
         """Returns the information about the cluster.
