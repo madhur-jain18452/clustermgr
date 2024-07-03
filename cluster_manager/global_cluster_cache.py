@@ -341,8 +341,7 @@ class GlobalClusterCache(object):
                     # -- O(n) should not matter much
                     deleted_uuid_list = user_obj.update_prefix(op=op, prefix=pref_to_use)
                     GLOBAL_MGR_LOGGER.debug(deleted_uuid_list)
-                    for (uuid, parent_cluster_name) in deleted_uuid_list:
-                        print(parent_cluster_name)
+                    for (uuid, parent_cluster_name, _) in deleted_uuid_list:
                         cobj = self.GLOBAL_CLUSTER_CACHE[parent_cluster_name]
                         vm_obj = cobj.vm_cache.get(uuid, None)
                         if not vm_obj: 
@@ -373,8 +372,6 @@ class GlobalClusterCache(object):
 
         with cluster_obj.vm_cache_lock:
             for uuid, vm_obj in cluster_obj.vm_cache.items():
-                if vm_obj.name == "Sahil-Ubuntu-LTS":
-                    print(vm_obj.owner)
                 if vm_obj.owner == None:
                     GLOBAL_MGR_LOGGER.debug(f"Cluster: {cluster_name} - "
                                             f"UUID under process is {uuid} :"
@@ -548,7 +545,9 @@ class GlobalClusterCache(object):
 
         failed_add_pref_list = []
         failed_remove_pref_list = []
+        vms_to_untrack = []
         done = False
+        # Get the user object or create new
         with self.GLOBAL_USER_CACHE_LOCK:
             if user_info[UserKeys.EMAIL] in self.GLOBAL_USER_CACHE:
                 if not is_patch:
@@ -562,20 +561,30 @@ class GlobalClusterCache(object):
                 user_obj = User(user_info)
                 self.GLOBAL_USER_CACHE[user_info[UserKeys.EMAIL]] = user_obj
 
-        # Now process the prefixes
+        # Now process the prefixes in the prefix-user mapping cache
         # add_prefixes will be present for both POST and PATCH
         for pref in user_info.get(UserKeys.ADD_NEW_PREF, []):
             pref = pref.lower()
             updated = self.update_prefix(user_email=user_info[UserKeys.EMAIL],
                                          prefix=pref, op='add')
             if updated:
+                if is_patch:
+                    user_obj.update_prefix(prefix=pref, op='add')
                 GLOBAL_MGR_LOGGER.info(f"{method} Added prefix '{pref}' for "
                                        f"the user {user_info[UserKeys.EMAIL]}")
             else:
+                # If any of the prefix update fails, check if needs to be
+                # removed from the cached user object and process the VMs accordingly
                 failed_add_pref_list.append(pref)
                 GLOBAL_MGR_LOGGER.error(f"{method} Could not add prefix '{pref}'"
                                         f"for the user {user_info[UserKeys.EMAIL]}")
-        # Will be present only for the PATCH requests
+                vm_list_untrack = user_obj.update_prefix(prefix=pref, op='remove')
+                if vm_list_untrack: 
+                    vms_to_untrack.extend(vm_list_untrack)
+
+        # REMOVE_NEW_PREF will be present only for the PATCH requests
+        # If remove_prefixes is successful, get the list of VMs which are
+        # tracked by this prefix and remove their owner
         for pref in user_info.get(UserKeys.REMOVE_NEW_PREF, []):
             pref = pref.lower()
             updated = self.update_prefix(user_email=user_info[UserKeys.EMAIL],
@@ -583,21 +592,34 @@ class GlobalClusterCache(object):
             if updated:
                 GLOBAL_MGR_LOGGER.info(f"{method} Removed prefix '{pref}' for"
                                        f" the user {user_info[UserKeys.EMAIL]}")
-                # FIXME Remove the owners for the VMs
+                vm_list_untrack = user_obj.update_prefix(prefix=pref, op='remove')
+                if vm_list_untrack:
+                    vms_to_untrack.extend(vm_list_untrack)
             else:
+                # Since removal failed -- the VMs are still tracked by the prefix
                 failed_remove_pref_list.append(pref)
                 GLOBAL_MGR_LOGGER.error(f"{method} Could not remove prefix "
                                         f"'{pref}' for the user "
                                         f"{user_info[UserKeys.EMAIL]}")
-        # If a PATCH request, now check if the quota/name needs to be patched
+        # For a PATCH request, also check if the quota/name needs to be patched
+        # FIXME update for the VMs in case of name change?
         if is_patch:
             if UserKeys.NAME in user_info:
                 user_obj.update_name(user_info[UserKeys.NAME])
             if UserKeys.QUOTA in user_info:
                 user_obj.update_resource_quota(user_info[UserKeys.QUOTA])
         done = True
-        # for pref in failed_pref_list:
-        #     user_obj.update_prefix(prefix=pref, op='remove')
+
+        if vms_to_untrack:
+            for (uuid, parent_cluster_name, vm_name) in vms_to_untrack:
+                cobj = self.GLOBAL_CLUSTER_CACHE[parent_cluster_name]
+                with cobj.vm_cache_lock:
+                    vm_obj = cobj.vm_cache.get(uuid, None)
+                    if not vm_obj:
+                        vm_obj = cobj.power_off_vms.get(uuid, None)
+                    if vm_obj:
+                        vm_obj.set_owner(None, None)
+                        GLOBAL_MGR_LOGGER.info(f"Untracking the VM {vm_name} for user {user_info[UserKeys.EMAIL]}")
         for cname, _ in self.GLOBAL_CLUSTER_CACHE.items():
             self.map_vm_and_users_track_resources(cname)
         return failed_add_pref_list, failed_remove_pref_list, done

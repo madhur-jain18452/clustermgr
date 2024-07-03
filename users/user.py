@@ -72,6 +72,7 @@ class User:
         for each_prefix in config_json[USRK.PREFIX]:
             self.prefixes.append(each_prefix.lower())
 
+        USER_LOGGER_.debug(f"Creating user {self.name} - {self.email}; Prefixes: {self.prefixes}")
         # Resources quota per user
         self.global_cores_quota = 0
         self.global_mem_quota = 0
@@ -281,23 +282,33 @@ class User:
         """
         # Since a user has only a few prefixes, O(n) for remove should be fine
         if op == "add":
+            # Any new VMs to process will be done by the cluster_cache
+            if prefix in self.prefixes:
+                return
             self.prefixes.append(prefix)
             USER_LOGGER_.info(f"Adding prefix {prefix} for the user "
                               f"{self.email}.")
         elif op == "remove":
+            # If the prefix is not present, do nothing
+            if prefix not in self.prefixes:
+                return
+            # Remove the prefix from the list and delete all the VMs which are identified by this prefix
             self.prefixes.remove(prefix)
-            to_delete_uuid = []
+            vms_to_untrack = []
             delete_vm_name = []
-            for uuid, vm_info in self.vm_resource_tracker.items():
-                if vm_info['name'].lower().startswith(prefix):
-                    delete_vm_name.append(vm_info['name'])
-                    to_delete_uuid.append((uuid, vm_info['parent_cluster']))
-            for (uuid, parent_cluster) in to_delete_uuid:
-                self.process_deleted_vm(uuid)
-            USER_LOGGER_.info(f"Removed prefix {prefix} for the user "
-                              f"{self.email}. Removed the following VMs: "
-                              f"{','.join(delete_vm_name)}")
-            return to_delete_uuid
+
+            with self.resources_lock:
+                for uuid, vm_info in self.vm_resource_tracker.items():
+                    if vm_info['name'].lower().startswith(prefix):
+                        delete_vm_name.append(vm_info['name'])
+                        vms_to_untrack.append((uuid, vm_info['parent_cluster'], vm_info['name']))
+                for (uuid, parent_cluster, _) in vms_to_untrack:
+                    self.process_deleted_vm(uuid)
+                USER_LOGGER_.info(f"Removed prefix {prefix} for the user "
+                                f"{self.email}. Removed the following VMs: "
+                                f"{','.join(delete_vm_name)}")
+
+            return vms_to_untrack
         else:
             raise Exception(f"Unknown operation {op} requested.")
 

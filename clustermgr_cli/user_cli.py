@@ -72,11 +72,11 @@ def list(prefix, quota):
 @click.option('--file',  type=str, default='all_users.json', help="Name of the file to flush the users list.")
 def add(name, email, prefixes, total, cluster, flush, file):
     """Add a new user to the system"""
-    # TODO Add a flush option to store the information of the user permanently
+    list_pref = prefixes.split(',')
     user_url = BASE_USERS_EP + "/" + email
     user_info = {
         'name': name,
-        'prefix': prefixes,
+        'prefix': [x.strip() for x in list_pref],
         'quota': [
             {
                 'global': {
@@ -113,9 +113,11 @@ def update(email, name, remove_prefixes, add_prefixes, total, cluster):
     if name:
         user_info['new_name'] = name
     if remove_prefixes:
-        user_info['remove_prefixes'] = remove_prefixes
+        list_rem = remove_prefixes.split(',')
+        user_info['remove_prefixes'] = [x.strip() for x in list_rem]
     if add_prefixes:
-        user_info['add_prefixes'] = add_prefixes
+        list_add = add_prefixes.split(',')
+        user_info['add_prefixes'] = [x.strip() for x in list_add]
     if total or cluster:
         user_info['quota'] = {}
         if total:

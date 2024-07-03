@@ -33,20 +33,20 @@ def add_update_user(email):
     request_args = json.loads(request.get_json())
     # Parse the comma-sep prefix list and clean
     if request.method == HTTPMethod.POST:
-        temp_list = request_args['prefix'].split(',')
-        prefix_ls = []
-        for each_pr in temp_list:
-            prefix_ls.append(each_pr.strip())
-        request_args['prefix'] = prefix_ls
+        # For a post request, Prefixes are passed as a list of strings
+        list_pref = request_args.get('prefix')
+        if list_pref is None:
+            return jsonify({'message': 'Prefixes are required for a new user.'}), HTTPStatus.BAD_REQUEST
+        request_args['add_prefixes'] = list_pref
     elif request.method == HTTPMethod.PATCH:
         if 'remove_prefixes' in request_args:
-            temp_list = request_args['remove_prefixes'].split(',')
+            temp_list = request_args['remove_prefixes']
             prefix_ls = []
             for each_pr in temp_list:
                 prefix_ls.append(each_pr.strip())
             request_args['remove_prefixes'] = prefix_ls
         if 'add_prefixes' in request_args:
-            temp_list = request_args['add_prefixes'].split(',')
+            temp_list = request_args['add_prefixes']
             prefix_ls = []
             for each_pr in temp_list:
                 prefix_ls.append(each_pr.strip())
