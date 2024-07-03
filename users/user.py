@@ -412,16 +412,16 @@ class User:
     def is_over_utilizing_quota(self) -> typing.Tuple[bool, dict, dict]:
         """Returns if the user is over-utilizing the quota.
         Returns:
-            is_offending (bool): True if the user is over-utilizing the quota
-            offenses (dict): A dict of the offending items
+            is_deviating (bool): True if the user is over-utilizing the quota
+            deviations (dict): A dict of the deviating items
             quotas (dict): A dict of the quotas for the user
         """
         resources = self._calculate_return_consumed_resources()
         per_cluster_resource_used = resources[0]
         total_cores_used = resources[1]
         total_memory_used = resources[2]
-        is_offending = False
-        offenses = {}
+        is_deviating = False
+        deviations = {}
         # Check for individual clusters
         for cluster_name, res_used in per_cluster_resource_used.items():
             if cluster_name in self.quotas:
@@ -429,7 +429,7 @@ class User:
                     if key in self.quotas[cluster_name]:
                         if (self.quotas[cluster_name][key] > 0 and
                             res_used[key] > self.quotas[cluster_name][key]):
-                            is_offending = True
+                            is_deviating = True
                             val = self.quotas[cluster_name][key]
                             USER_LOGGER_.warning(f"User {self.email} is over-utilizing "
                                                  f"allocated {key} on the cluster "
@@ -437,20 +437,20 @@ class User:
                                                  f"{"GB" if key == RES.MEMORY else ""}. "
                                                  f"Quota: {val if val > 0 else "Nil"}"
                                                  f", used: {res_used[key]}")
-                        if cluster_name not in offenses:
-                            offenses[cluster_name] = {}
-                        offenses[cluster_name][key] = res_used[key]
+                        if cluster_name not in deviations:
+                            deviations[cluster_name] = {}
+                        deviations[cluster_name][key] = res_used[key]
 
         # Check for total quota
         if total_cores_used > self.global_cores_quota:
-            is_offending = True
+            is_deviating = True
             # diff_core = total_cores_used - self.global_cores_quota
-        offenses["global"] = {RES.CORES: total_cores_used}
+        deviations["global"] = {RES.CORES: total_cores_used}
         if total_memory_used > self.global_mem_quota:
-            is_offending = True
-            if "global" not in offenses:
-                offenses["global"] = {}
-        offenses["global"][RES.MEMORY] = total_memory_used # - self.global_mem_quota
+            is_deviating = True
+            if "global" not in deviations:
+                deviations["global"] = {}
+        deviations["global"][RES.MEMORY] = total_memory_used # - self.global_mem_quota
 
         # Add quotas to reduce the API calls to the global cache
         quotas = {"global": {}}
@@ -459,7 +459,7 @@ class User:
         for cname, quota in self.quotas.items():
             quotas[cname] = quota
 
-        return is_offending, offenses, quotas
+        return is_deviating, deviations, quotas
 
     def update_name(self, new_name) -> bool:
         USER_LOGGER_.info("Updated the name of the user with email {self.email}"

@@ -10,9 +10,9 @@ USER_CFG_FILE ?= users.yaml
 CACHE_REFRESH_INTERVAL ?= 2h
 MAIL_FREQUENCY ?= @1000
 ACTION_FREQUENCY ?= @1700
-REFRESH_OFFENSE ?= 4h
-RETAIN_OFFENSES ?= 7d
-OFFENSE_CHECKBACK_INTERVAL ?= 2d
+REFRESH_DEVIATION ?= 4h
+RETAIN_DEVIATIONS ?= 7d
+DEVIATION_CHECKBACK_INTERVAL ?= 2d
 
 .PHONY: help init_prod init_eval deploy stop clean all
 
@@ -30,9 +30,9 @@ init_eval_local:
 	--refresh-cache $(CACHE_REFRESH_INTERVAL) \
 	--mail-frequency $(MAIL_FREQUENCY) \
 	--action-frequency $(ACTION_FREQUENCY) \
-	--refresh-offense $(REFRESH_OFFENSE) \
-	--retain-offense $(RETAIN_OFFENSES) \
-	--offense-checkback $(OFFENSE_CHECKBACK_INTERVAL) \
+	--refresh-deviations $(REFRESH_DEVIATION) \
+	--retain-deviations $(RETAIN_DEVIATIONS) \
+	--deviations-checkback $(DEVIATION_CHECKBACK_INTERVAL) \
 	--eval
 
 init_prod:
@@ -48,9 +48,9 @@ init_prod:
 		--refresh-cache $(CACHE_REFRESH_INTERVAL) \
 		--mail-frequency $(MAIL_FREQUENCY) \
 		--action-frequency $(ACTION_FREQUENCY) \
-		--refresh-offense $(REFRESH_OFFENSE) \
-		--retain-offense $(RETAIN_OFFENSES) \
-		--offense-checkback $(OFFENSE_CHECKBACK_INTERVAL) > flask.log 2>&1 & \
+		--refresh-deviations $(REFRESH_DEVIATION) \
+		--retain-deviations $(RETAIN_DEVIATIONS) \
+		--deviations-checkback $(DEVIATION_CHECKBACK_INTERVAL) > flask.log 2>&1 & \
 		sleep 5""
 	@echo "Initialized $(APP_NAME) on $(REMOTE_HOST) for user $(REMOTE_USER)"
 
@@ -67,9 +67,9 @@ init_eval:
 		--refresh-cache $(CACHE_REFRESH_INTERVAL) \
 		--mail-frequency $(MAIL_FREQUENCY) \
 		--action-frequency $(ACTION_FREQUENCY) \
-		--refresh-offense $(REFRESH_OFFENSE) \
-		--retain-offense $(RETAIN_OFFENSES) \
-		--offense-checkback $(OFFENSE_CHECKBACK_INTERVAL) \
+		--refresh-deviations $(REFRESH_DEVIATION) \
+		--retain-deviations $(RETAIN_DEVIATIONS) \
+		--deviations-checkback $(DEVIATION_CHECKBACK_INTERVAL) \
 		--eval > flask.log 2>&1 & \
 		sleep 5"
 	@echo "Initialized $(APP_NAME) on $(REMOTE_HOST) for user $(REMOTE_USER)"

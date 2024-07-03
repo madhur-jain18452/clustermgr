@@ -14,7 +14,7 @@ from http import HTTPStatus, HTTPMethod
 
 from scheduler.task import TaskManager
 from cluster_manager.constants import CACHE_REBUILD_TASK_TAG, \
-    GET_OFFENSES_TASK_TAG,\
+    GET_DEVIATIONS_TASK_TAG,\
     SEND_WARNING_TASK_TAG, TAKE_ACTION_TASK_TAG
 from helper import parse_freq_str_to_json
 
@@ -82,8 +82,8 @@ def update_cache_refresh():
                      f'for frequency {json.dumps(freq_json)}'}),
             HTTPStatus.OK)
 
-@tool_blue_print.route("/tool/offense_refresh", methods=[HTTPMethod.PUT])
-def update_offense_refresh():
+@tool_blue_print.route("/tool/deviation_refresh", methods=[HTTPMethod.PUT])
+def update_deviation_refresh():
     """
     This needs to be separate for each function as we have tag associated with
     each one and function name rechecks are not really a good way as these are
@@ -99,10 +99,10 @@ def update_offense_refresh():
         return jsonify({'message': ex.__str__}), HTTPStatus.INTERNAL_SERVER_ERROR
     task_mgr = TaskManager()
     global_cache = GlobalClusterCache()
-    task_mgr.delete_job(GET_OFFENSES_TASK_TAG)
+    task_mgr.delete_job(GET_DEVIATIONS_TASK_TAG)
     kwargs = {'get_vm_resources_per_cluster': True, 'retain_diff': True}
-    task_mgr.add_repeated_task(global_cache, "get_offending_items", freq_json,
-                               GET_OFFENSES_TASK_TAG,
+    task_mgr.add_repeated_task(global_cache, "get_deviating_items", freq_json,
+                               GET_DEVIATIONS_TASK_TAG,
                                task_name="Refreshing cluster cache", **kwargs)
     return (jsonify({'message': 'New Offense Refresh job add successful '
                      f'for frequency {json.dumps(freq_json)}'}),
@@ -152,9 +152,9 @@ def update_action_frequency():
     task_mgr = TaskManager()
     cluster_monitor = ClusterMonitor()
     task_mgr.delete_job(TAKE_ACTION_TASK_TAG)
-    task_mgr.add_repeated_task(cluster_monitor, "take_action_offenses", freq_json,
+    task_mgr.add_repeated_task(cluster_monitor, "take_action_deviations", freq_json,
                                TAKE_ACTION_TASK_TAG,
-                               task_name="Taking action on offenses")
+                            task_name="Taking action on deviations")
     return (jsonify({'message': 'New offense action job updated successful '
                      f'for frequency {json.dumps(freq_json)}'}),
             HTTPStatus.OK)

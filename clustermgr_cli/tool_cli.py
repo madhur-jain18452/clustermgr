@@ -68,13 +68,13 @@ def update_cache_refresh_timings(new_frequency_str):
                        json=json.dumps(body), headers=CLI_HEADERS)
     click.echo(res.json()['message'])
 
-@tool.command(name="update-offense-refresh")
+@tool.command(name="update-dev-refresh")
 @click.argument("new_frequency_str")
 def update_cache_refresh_timings(new_frequency_str):
-    """Update the frequency at which the cache refreshes the Offenses
+    """Update the frequency at which the cache refreshes the Deviations
     """
     body = {'new_freq_str': new_frequency_str}
-    res = requests.put(LOCAL_ENDPOINT + TOOL_EP + "/offense_refresh",
+    res = requests.put(LOCAL_ENDPOINT + TOOL_EP + "/deviation_refresh",
                        json=json.dumps(body), headers=CLI_HEADERS)
     click.echo(res.json()['message'])
 
@@ -91,7 +91,7 @@ def update_cache_refresh_timings(new_frequency_str):
 @tool.command(name="update-action-freq")
 @click.argument("new_frequency_str")
 def update_cache_refresh_timings(new_frequency_str):
-    """Update the frequency at the actions are taken on the offenses
+    """Update the frequency at the actions are taken on the deviations
     """
     body = {'new_freq_str': new_frequency_str}
     res = requests.put(LOCAL_ENDPOINT + TOOL_EP + "/action_frequency",

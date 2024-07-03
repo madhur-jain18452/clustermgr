@@ -26,7 +26,7 @@ from custom_exceptions.exceptions import SameTimestampError, ActionAlreadyPerfor
 from users.user import User
 
 
-DEFAULT_OFFENSE_RETAIN_VALUE = 5000
+DEFAULT_DEVIATION_RETAIN_VALUE = 5000
 
 
 GLOBAL_MGR_LOGGER = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ class GlobalClusterCache(object):
             # We will send a notification for this.
             # TODO Store it in the time-series database to get the diff in easy
             # way for the time schedule
-            self.timed_offenses = OrderedDict()
+            self.timed_deviations = OrderedDict()
             print("Building user cache")
             self._build_user_cache()
             print("Building user cache DONE")
@@ -835,36 +835,36 @@ class GlobalClusterCache(object):
                             sort_by_mem=sort_by_mem)
         return vm_using_resources_sorted_list
 
-    def _get_user_offenses(self, email=None) -> typing.Dict:
+    def _get_deviating_users(self, email=None) -> typing.Dict:
         """Helped function that iterates over all the users in the cache and
-            returns a Map of email to the quota offenses of the user
+            returns a Map of email to the quota deviations of the user
             Args:
-                email (optional): To get offense of a single user
+                email (optional): To get deviations of a single user
             Returns:
-                Dict: Mapping email of user to the quota offenses
+                Dict: Mapping email of user to their quota deviations
         """
-        offending_users = {}
+        deviating_users = {}
         with (self.GLOBAL_USER_CACHE_LOCK):
             if email is not None:
                 if email in self.GLOBAL_USER_CACHE:
                     user_obj = self.GLOBAL_USER_CACHE[email]
-                    is_offending, offenses, quotas = \
+                    is_deviating, deviations, quotas = \
                         user_obj.is_over_utilizing_quota()
-                    if not is_offending:
+                    if not is_deviating:
                         GLOBAL_MGR_LOGGER.info(f"User {email} requested for "
                                                "quota over-utilization, no "
                                                "utilization detected.")
                         return {}
                     else:
-                        offending_users[email] = {'offenses': offenses, 'quotas': quotas}
+                        deviating_users[email] = {'deviations': deviations, 'quotas': quotas}
             else:
                 for email, user_obj in self.GLOBAL_USER_CACHE.items():
-                    is_offending, offenses, quotas = user_obj.is_over_utilizing_quota()
-                    if is_offending:
-                        offending_users[email] = {'offenses': offenses, 'quotas': quotas}
-        return offending_users
+                    is_deviating, deviations, quotas = user_obj.is_over_utilizing_quota()
+                    if is_deviating:
+                        deviating_users[email] = {'deviations': deviations, 'quotas': quotas}
+        return deviating_users
 
-    def get_offending_items(self, get_users_over_util=True,
+    def get_deviating_items(self, get_users_over_util=True,
                             include_vm_without_prefix=True,
                             get_vm_resources_per_cluster=False,
                             email=None,
@@ -873,31 +873,31 @@ class GlobalClusterCache(object):
                             sort_by_mem=False, print_summary=False,
                             retain_diff=False
                             ) -> typing.Optional[typing.Tuple[dict, dict, dict]]:
-        """Returns all the offending items on the cluster
+        """Returns all the deviating items on the cluster
         Args:
             get_users_over_util (bool): If True, returns the users who are over-utilizing
             include_vm_without_prefix (bool): If True, returns the VMs without prefix
             get_vm_resources_per_cluster (bool): If True, returns the VMs sorted by resources
-            email (str): Email of the user to filter the offenses
-            cluster_name (str): Name of the cluster to filter the offenses
+            email (str): Email of the user to filter the deviations
+            cluster_name (str): Name of the cluster to filter the deviations
             count (int): Number of VMs to return. If -1, returns all.
             sort_by_cores (bool): If True, sorts the VMs by the cores they are using
             sort_by_mem (bool): If True, sorts the VMs by the mem they are using
             print_summary (bool): If True, prints the summary on the console
             retain_diff (bool): If True, retains the diff in the cache
         Returns:
-            Tuple(dict, dict, dict): Offending users, VMs per cluster, VMs without prefix
+            Tuple(dict, dict, dict): Deviating users, VMs per cluster, VMs without prefix
         """
         users_over_utilizing_quota = {}
         vm_resources_per_cluster = {}
         vm_without_prefix = {}
         if (not get_users_over_util and not include_vm_without_prefix and
                 not get_vm_resources_per_cluster):
-            GLOBAL_MGR_LOGGER.error("At least one of the offending items must"
+            GLOBAL_MGR_LOGGER.error("At least one of the deviating items must"
                                     " be specified.")
             return None
         if get_users_over_util:
-            users_over_utilizing_quota = self._get_user_offenses(email=email)
+            users_over_utilizing_quota = self._get_deviating_users(email=email)
         if get_vm_resources_per_cluster:
             if cluster_name:
                 vm_resources_per_cluster[cluster_name] = self._get_vms_resources_sorted(
@@ -919,21 +919,21 @@ class GlobalClusterCache(object):
 
         if retain_diff:
             ts = int(time.time())
-            GLOBAL_MGR_LOGGER.debug(f"Adding entry in the timed_offenses: at ts: {ts}")
-            self.timed_offenses[ts] = {}
+            GLOBAL_MGR_LOGGER.debug(f"Adding entry in the timed_deviations: at ts: {ts}")
+            self.timed_deviations[ts] = {}
             if get_users_over_util:
-                self.timed_offenses[ts]['users_over_util'] = users_over_utilizing_quota
+                self.timed_deviations[ts]['users_over_util'] = users_over_utilizing_quota
             if get_vm_resources_per_cluster:
-                self.timed_offenses[ts]['vm_using_per_cluster'] = vm_resources_per_cluster
+                self.timed_deviations[ts]['vm_using_per_cluster'] = vm_resources_per_cluster
             if include_vm_without_prefix:
-                self.timed_offenses[ts]['vm_without_prefix'] = vm_without_prefix
-            while len(self.timed_offenses) > int(os.environ.get('offense_cache_retain', str(DEFAULT_OFFENSE_RETAIN_VALUE))):
-                GLOBAL_MGR_LOGGER.info(f"There are {len(self.timed_offenses)} "
-                                       "offense entries. Pruning to reach "
-                                       f"{os.environ.get('offense_cache_retain')}")
-                self.timed_offenses.popitem(last=False)
-            # GLOBAL_MGR_LOGGER.debug(f"The entry in the timed_offenses: at ts is {json.dumps(self.timed_offenses[ts], indent=4)}")
-            # print(f"The entry in the timed_offenses: at ts is {json.dumps(self.timed_offenses[ts], indent=4)}")
+                self.timed_deviations[ts]['vm_without_prefix'] = vm_without_prefix
+            while len(self.timed_deviations) > int(os.environ.get('deviations_cache_retain', str(DEFAULT_DEVIATION_RETAIN_VALUE))):
+                GLOBAL_MGR_LOGGER.info(f"There are {len(self.timed_deviations)} "
+                                       "deviation entries. Pruning to reach "
+                                       f"{os.environ.get('deviations_cache_retain')}")
+                self.timed_deviations.popitem(last=False)
+            # GLOBAL_MGR_LOGGER.debug(f"The entry in the timed_deviations: at ts is {json.dumps(self.timed_deviations[ts], indent=4)}")
+            # print(f"The entry in the timed_deviations: at ts is {json.dumps(self.timed_deviations[ts], indent=4)}")
 
         if print_summary:
             json.dumps(users_over_utilizing_quota, indent=4)
@@ -942,10 +942,10 @@ class GlobalClusterCache(object):
         return users_over_utilizing_quota, vm_resources_per_cluster, vm_without_prefix
 
     # Functions helping the Cluster Monitor
-    def get_timed_offenses(self, start_ts,
+    def get_timed_deviations(self, start_ts,
                            end_ts
                            ) -> typing.Tuple[int, typing.Dict, int, typing.Dict]:
-        """Retuns the consolidated list of the quota and VM offenses, which
+        """Retuns the consolidated list of the quota and VM deviations, which
             has not changed from start_ts and end_ts.
             If exact timestamps do not exist, returns the data at closest \
                 matching timestamps
@@ -953,31 +953,31 @@ class GlobalClusterCache(object):
                 start_ts (int | None): Older timestamp to check for the diff
                 end_ts (int): Newer timestamp to check
             Returns:
-                tuple(int, dict, int, dict): actual_old_ts, old_offenses,\
-                    actual_new_ts, new_offenses
+                tuple(int, dict, int, dict): actual_old_ts, old_deviations,\
+                    actual_new_ts, new_deviations
             Raises:
                 SameTimestampError
         """
         if not start_ts:
             start_ts = int(time.time())
 
-        # GLOBAL_MGR_LOGGER.debug(json.dumps(self.timed_offenses))
+        # GLOBAL_MGR_LOGGER.debug(json.dumps(self.timed_deviations))
     
         # Get the closest time stamp to start_ts in the cache
-        closest_start_ts = min(self.timed_offenses.keys(), key=lambda ts: abs(start_ts - ts))
+        closest_start_ts = min(self.timed_deviations.keys(), key=lambda ts: abs(start_ts - ts))
 
         # Get the closest time-stamped data to end_ts
-        closest_end_ts = min(self.timed_offenses.keys(), key=lambda ts: abs(end_ts - ts))
+        closest_end_ts = min(self.timed_deviations.keys(), key=lambda ts: abs(end_ts - ts))
 
         if closest_start_ts == closest_end_ts:
             err_str = (f"The latest time: {closest_end_ts} and the earliest "
                        f"time: {closest_start_ts} are same!")
             GLOBAL_MGR_LOGGER.error(err_str)
             raise SameTimestampError(err_str)
-        old_offenses = self.timed_offenses[closest_start_ts]
-        new_offenses = self.timed_offenses[closest_end_ts]
+        old_devs = self.timed_deviations[closest_start_ts]
+        new_devs = self.timed_deviations[closest_end_ts]
 
-        return closest_start_ts, old_offenses, closest_end_ts, new_offenses
+        return closest_start_ts, old_devs, closest_end_ts, new_devs
 
     def dump_user_config(self, file_name):
         """Dumps the user configuration to a file

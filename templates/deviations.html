@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=0.8">
-    <title>Offenses List</title>
+    <title>Deviations List</title>
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
     <!-- <link rel="stylesheet" href="templates/static/css/style.css"> -->
     <style>
@@ -59,7 +59,7 @@
 </head>
 <body>
     <div class="w3-bar w3-black top-sticky">
-        <a href="/cache/offenses" class="w3-bar-item w3-button">Offenses</a>
+        <a href="/cache/deviations" class="w3-bar-item w3-button">Deviations</a>
         <a href="/users" class="w3-bar-item w3-button">Users</a>
         <a href="/clusters" class="w3-bar-item w3-button">Clusters</a>
         <!-- <a href="#" class="w3-bar-item w3-button">Link 3</a> -->
@@ -74,7 +74,7 @@
                 <th>Quota</th>
                 <th>Usage</th>
             </tr>
-            {% for email, cluster_res_info in offenses.get('users', {}).items() %}
+            {% for email, cluster_res_info in deviations.get('users', {}).items() %}
             {% set row_count = cluster_res_info|length %}
             {% for cluster_name, specs in cluster_res_info.items() %}
                 <tr>
@@ -96,7 +96,7 @@
     </div>
 
     <h2 style="padding-left: 2%;">List of VMs whose owners could not be verified</h2>
-    {% for cname, vm_info_list in offenses.get("vms", {}).items() %}
+    {% for cname, vm_info_list in deviations.get("vms", {}).items() %}
     <div style="margin: 5px;">
         {% set mem_health = chealth.get(cname, {}).get('memory_state', 'UNKNOWN') %}
         {% set mem_perc = chealth.get(cname, {}).get("memory_perc", "-") %}

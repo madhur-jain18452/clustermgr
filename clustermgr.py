@@ -21,7 +21,7 @@ from rest_api.tool_api import tool_blue_print
 
 from cluster_manager.global_cluster_cache import GlobalClusterCache
 from cluster_manager.cluster_monitor import ClusterMonitor
-from cluster_manager.constants import TAKE_ACTION_TASK_TAG, GET_OFFENSES_TASK_TAG,\
+from cluster_manager.constants import TAKE_ACTION_TASK_TAG, GET_DEVIATIONS_TASK_TAG,\
     SEND_WARNING_TASK_TAG, CACHE_REBUILD_TASK_TAG
 from helper import load_config_file, verify_config, parse_freq_str_to_json, \
     convert_freq_str_to_seconds, time_until_next_run
@@ -87,24 +87,24 @@ if __name__ == "__main__":
     parser.add_argument('--refresh-cache', '-r', type=str,default='2m',
                         help="Frequency to run the cache rebuild. Pass the value in "
                              "the form 2m, 2h, 1d, etc.")
-    parser.add_argument('--refresh-offense', '-o', type=str,
+    parser.add_argument('--refresh-deviations', '-o', type=str,
                         default='3h', help="Frequency to calculate and "
-                                           "retain the offending users")
-    parser.add_argument('--retain-offense', type=str, default='7d',
-                        help="Time for which to store the offenses. Default is 7 days")
-    parser.add_argument('--offense-checkback', '-c', type=str,
+                                           "retain the deviating users")
+    parser.add_argument('--retain-deviations', type=str, default='7d',
+                        help="Time for which to store the deviations. Default is 7 days")
+    parser.add_argument('--deviations-checkback', '-c', type=str,
                         default='2d', help="How far back should the sustained "
-                                           "offenses be checked. Default is 2 days "
-                                           "-- Checks the offenses that have been "
+                                           "deviations be checked. Default is 2 days "
+                                           "-- Checks the deviations that have been "
                                            "there since two days")
     parser.add_argument('--mail-frequency', '-m', type=str, default='@1000',
-                        help="Frequency to mail the offending Users. To run it "
+                        help="Frequency to mail the deviating Users. To run it "
                              "at a specific time per day, pass "
                              "'@[time_of_day_24hours_format]'. "
                              "Default: Once per day at 10:00 AM.")
     parser.add_argument('--action-frequency', '-a', type=str,
                         default='@1700', help="Frequency to take action on the "
-                                              "offending Users. To run it at a specific "
+                                              "deviating Users. To run it at a specific "
                                               "time per day, pass "
                                               "'@[time_of_day_24hours_format]'. "
                                               "Default: Once per day at 05:00 PM.")
@@ -129,22 +129,14 @@ if __name__ == "__main__":
     tm.add_repeated_task(global_cache, "rebuild_cache", ref_freq, CACHE_REBUILD_TASK_TAG,
                          task_name="Refreshing cluster cache")
 
-    global_cache.get_offending_items(get_vm_resources_per_cluster=True,
+    global_cache.get_deviating_items(get_vm_resources_per_cluster=True,
                                      retain_diff=True)
     kwargs = {'get_vm_resources_per_cluster': True, 'retain_diff': True}
-    tm.add_repeated_task(global_cache, "get_offending_items",
-                         parse_freq_str_to_json(args.refresh_offense),
-                         GET_OFFENSES_TASK_TAG,
-                         task_name="Populating offenses", **kwargs)
-    # c_time = time.time()
-    # e_time = c_time + 100
-    # # while time.time() < e_time:
-    # time.sleep(10)
-    # #     print(f"current ts: {time.time()}, waiting till {e_time}")
-    # global_cache.get_offending_items(get_vm_resources_per_cluster=True,
-    #                                  retain_diff=True)
+    tm.add_repeated_task(global_cache, "get_deviating_items",
+                         parse_freq_str_to_json(args.refresh_deviations),
+                         GET_DEVIATIONS_TASK_TAG,
+                         task_name="Populating deviations", **kwargs)
 
-    # cluster_monitor.calculate_continued_offenses()
     if args.eval:
         print("Running in Eval mode")
         os.environ.setdefault('eval_mode', 'True')
@@ -157,10 +149,10 @@ if __name__ == "__main__":
     else:
         os.environ.setdefault('override_dnd', 'False')
 
-    if args.offense_checkback:
-        number_of_secs = convert_freq_str_to_seconds(args.offense_checkback)
-        print(f"Calculating the offenses sustained from last {number_of_secs} sec.")
-        os.environ.setdefault('offense_checkback', str(number_of_secs))
+    if args.deviations_checkback:
+        number_of_secs = convert_freq_str_to_seconds(args.deviations_checkback)
+        print(f"Calculating the deviations sustained from last {number_of_secs} sec.")
+        os.environ.setdefault('deviations_checkback', str(number_of_secs))
 
     # make the first run of the action 2 times time after the mails are done.
     # For e.g., if the mail is sent every 3 hours, first run of action will be 
@@ -190,30 +182,30 @@ if __name__ == "__main__":
 
     if args.action_frequency.startswith("@"):
         parsed_time = parse_freq_str_to_json(args.action_frequency)
-        tm.add_repeated_task(cluster_monitor, "take_action_offenses", parsed_time,
+        tm.add_repeated_task(cluster_monitor, "take_action_deviations", parsed_time,
                              TAKE_ACTION_TASK_TAG,
-                             task_name="Take action on user offenses")
-        print(f"Will take action on the continued offenses at every day at "
+                             task_name="Take action on user deviations")
+        print(f"Will take action on the continued deviations at every day at "
               f"{parsed_time['day_time']}")
     else:
         first_action_run = first_mailing + convert_freq_str_to_seconds(args.mail_frequency)
         action_frequency = parse_freq_str_to_json(args.action_frequency)
-        print(f"Will take action on the continued offenses after "
+        print(f"Will take action on the continued deviations after "
               f"{datetime.fromtimestamp(first_action_run)} with"
               f" frequency: {action_frequency}")
-        tm.add_repeated_task(cluster_monitor, "take_action_offenses",
+        tm.add_repeated_task(cluster_monitor, "take_action_deviations",
                              action_frequency, TAKE_ACTION_TASK_TAG,
-                             task_name="Take action on user offenses")
+                             task_name="Take action on user deviations")
 
-    retain_in_sec = convert_freq_str_to_seconds(args.retain_offense)
-    print(f"\nRetaining the offenses for {args.retain_offense}: {retain_in_sec} secs")
-    off_refresh = convert_freq_str_to_seconds(args.refresh_offense)
-    print(f"\nRefreshing the offenses every {args.refresh_offense}: {off_refresh} secs")
+    retain_in_sec = convert_freq_str_to_seconds(args.retain_deviations)
+    print(f"\nRetaining the Deviations for {args.retain_deviations}: {retain_in_sec} secs")
+    off_refresh = convert_freq_str_to_seconds(args.refresh_deviations)
+    print(f"\nRefreshing the Deviations every {args.refresh_deviations}: {off_refresh} secs")
     import math
     length_to_retain = math.ceil(retain_in_sec / off_refresh) + 1
     # length_to_retain = 5
     print(f"setting the cache to retain {length_to_retain} timestamps")
-    os.environ.setdefault('offense_cache_retain', str(length_to_retain))
+    os.environ.setdefault('deviations_cache_retain', str(length_to_retain))
     # while True:
     #     time.sleep(1)
     #

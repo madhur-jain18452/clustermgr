@@ -57,7 +57,7 @@ class ClusterMonitor:
         cm_logger.info(f"Sending warning emails to the users who are over-utilizing the resources. timestamp: {time.time()}")
         pass
 
-    def _calculate_continued_offenses(self, from_timestamp=None,
+    def _calculate_continued_deviations(self, from_timestamp=None,
                                      new_timestamp=None,
                                      timediff=ONE_DAY_IN_SECS
                                      ) -> typing.Optional[typing.Tuple[dict, int, int]]:
@@ -68,66 +68,65 @@ class ClusterMonitor:
                 new_timestamp (Optional): End timestamp. If not provided, current time is used
                 timediff: Time difference between the two timestamps. Default is 1 day (86400 seconds).
             Returns:
-                None: If the offenses could not be calculated
+                None: If the deviations could not be calculated
                 else:
-                continued_offenses (dict): Offenses that are continued from the old to the new timestamp
+                continued_deviations (dict): deviations that are continued from the old to the new timestamp
                 actual_old_ts (int): Actual old timestamp used for the calculation
                 actual_new_ts (int): Actual new timestamp used for the calculation
         """
         global_cache = GlobalClusterCache()
-        continued_offenses = {}
+        continued_deviations = {}
         if new_timestamp is None:
             new_timestamp = int(time.time())
         if from_timestamp is None:
             from_timestamp = new_timestamp - timediff
-        cm_logger.info(f'Getting the offenses done between {from_timestamp}:'
+        cm_logger.info(f'Getting the deviations done between {from_timestamp}:'
                        f'{date.fromtimestamp(from_timestamp)} to {new_timestamp}:'
                        f'{date.fromtimestamp(new_timestamp)}')
 
         try:
-            timed_offenses = global_cache.get_timed_offenses(
+            timed_deviations = global_cache.get_timed_deviations(
                 start_ts=from_timestamp,
                 end_ts=new_timestamp
             )
         except SameTimestampError as ste:
             cm_logger.warning(ste)
             return
-        actual_old_ts, old_offenses, actual_new_ts, new_offenses = timed_offenses
-        cm_logger.info(f'Actual timestamps for the offenses is {actual_old_ts}:'
+        actual_old_ts, old_deviations, actual_new_ts, new_deviations = timed_deviations
+        cm_logger.info(f'Actual timestamps for the deviations is {actual_old_ts}:'
                        f'{date.fromtimestamp(actual_old_ts)} to {actual_new_ts}:'
                        f'{date.fromtimestamp(actual_new_ts)}')
 
         # Create a generic process that calculates the difference
-        for k, old_v in old_offenses.items():
-            if k in new_offenses:
-                new_v = new_offenses[k]
-                common_offender = None
+        for k, old_v in old_deviations.items():
+            if k in new_deviations:
+                new_v = new_deviations[k]
                 # If the values are dict, we need the keys
                 if type(old_v) is dict:
-                    common_offenders = set(old_v.keys()).intersection(set(new_v.keys()))
+                    common_deviations = set(old_v.keys()).intersection(set(new_v.keys()))
                     # For the dict, insert the key into the tracker, and insert the latest values
-                    continued_offenses[k] = {}
-                    for co in common_offenders:
-                        continued_offenses[k][co] = new_v[co]
+                    continued_deviations[k] = {}
+                    for co in common_deviations:
+                        continued_deviations[k][co] = new_v[co]
                 # if the values is a list
                 elif type(old_v) is list:
                     # list of tuples. NOTE: First value (idx 0) is assumed to
                     # be the UUID (Names are also fine if they are immutable)
                     if old_v[0]:
                         if old_v[0] is tuple:
-                            common_offenders = set([v[0] for v in old_v]).intersection(
+                            common_deviations = set([v[0] for v in old_v]).intersection(
                                 set([v[0] for v in new_v]))
                             # Reconstruct the tuple
-                            continued_offenses[k] = [v for v in new_v if v[0] in common_offenders]
+                            continued_deviations[k] = [v for v in new_v if v[0] in common_deviations]
                         else:
                             # List of values (typically strings) TODO Handle other cases
-                            common_offenders = set(old_v).intersection(set(new_v))
-                            continued_offenses[k] = common_offenders
+                            common_deviations = set(old_v).intersection(set(new_v))
+                            continued_deviations[k] = common_deviations
             # TODO Send emails here
-        return continued_offenses, actual_old_ts, actual_new_ts
+        return continued_deviations, actual_old_ts, actual_new_ts
 
-    def take_action_offenses(self):
-        """Function that takes action on the offenses calculated
+    def take_action_deviations(self):
+        """Function that takes action on the deviations calculated
         For each user, we try to bring the individual cluster utilization under\
             control marking the VMs and powering them off.
             First checks if any non-DND VMs can be turned off.
@@ -222,7 +221,7 @@ class ClusterMonitor:
                                         cl_name=cl_name,
                                         cl_over_util_core=cl_core_util,
                                         cl_over_util_mem=cl_mem_util)
-                    # If either of the offenses are under control after
+                    # If either of the deviations are under control after
                     # powering off this VM, check only for the other resource
                     # We will either pass both the params or none of them
                     if cl_core_util is not None and cl_mem_util is not None:
@@ -260,21 +259,21 @@ class ClusterMonitor:
                             f"{datetime.fromtimestamp(float(first_action_run))}")
                 return
             pass
-        checkback_seconds = os.environ.get("offense_checkback", str(ONE_DAY_IN_SECS))
+        checkback_seconds = os.environ.get("deviations_checkback", str(ONE_DAY_IN_SECS))
         start_time = current_time - int(checkback_seconds)
-        offenses = \
-            self._calculate_continued_offenses(from_timestamp=start_time,
+        deviations = \
+            self._calculate_continued_deviations(from_timestamp=start_time,
                                                new_timestamp=current_time)
-        if offenses:
-            continued_offenses, actual_old_ts, actual_new_ts = offenses
+        if deviations:
+            continued_deviations, actual_old_ts, actual_new_ts = deviations
         else:
-            cm_logger.error("No offenses could be calculated.")
+            cm_logger.error("No deviations could be calculated.")
             return
         # if actual_new_ts - actual_old_ts < ONE_DAY_IN_SECS:
         #     cm_logger.error(f"Diff between the new and old TS is less than the set value of {ONE_DAY_IN_SECS}")
         #     return
         vm_uuids_to_turn_off = []
-        users_over_util = continued_offenses.get('users_over_util', {})
+        users_over_util = continued_deviations.get('users_over_util', {})
         for user_email, over_util_cluster_info in users_over_util.items():
             # Store the marked VMs as a tuple(UUID, cluster_name)
             user_vms_marked_power_off = set()
@@ -286,7 +285,7 @@ class ClusterMonitor:
 
             gl_over_util_mem = 0
             gl_over_util_core = 0
-            # Global offense may or may not be populated
+            # Global DEVIATION may or may not be populated
             global_over_util_info = over_util_cluster_info.get("global", {})
             if global_over_util_info:
                 gl_over_util_core = global_over_util_info.get("cores", 0)
@@ -294,7 +293,7 @@ class ClusterMonitor:
             for cname, resource_info in over_util_cluster_info.items():
                 if cname == "global":
                     # We want to take care of the individual clusters first,
-                    # and then see if the user is still offending global quota
+                    # and then see if the user is still deviating from their global quota
                     continue
                 # First check if any VMs without DND can be turned off
                 user_vm_list_this_cluster = _user_json_to_list(user_json, cname)
@@ -412,7 +411,7 @@ class ClusterMonitor:
         # Perform actual power-off and NIC removal.
         # BACKLOG: Can do multi-threaded
         cm_logger.info("Processing the VMs whose owners are unknown")
-        vm_without_prefix = continued_offenses.get('vm_without_prefix', [])
+        vm_without_prefix = continued_deviations.get('vm_without_prefix', [])
         # cm_logger.info(f"Although not processing them, this is the list of VMs to turn off: {json.dumps(vm_uuids_to_turn_off)}")
         # cm_logger.info(f"Although not processing them, this is the list of VMs without prefix: {json.dumps(vm_without_prefix)}")
 
@@ -443,7 +442,7 @@ class ClusterMonitor:
             #  Check the VMs whose owners are unknown
             #  This is stored as a {cluster1: [(uuid1, vm_name1), (uuid2, vm_name2)]}
             cm_logger.info("Processing the VMs whose owners are unknown")
-            vm_without_prefix = continued_offenses.get('vm_without_prefix', [])
+            vm_without_prefix = continued_deviations.get('vm_without_prefix', [])
             for cname, vm_list in vm_without_prefix.items():
                 for vm_uuid, vm_name in vm_list:
                     po_status, po_msg = global_cache.perform_cluster_vm_power_change(

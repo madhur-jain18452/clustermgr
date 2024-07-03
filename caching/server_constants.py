@@ -138,10 +138,10 @@ def is_dnd(name):
     return False
 
 
-class OffenseKeys(object):
-    OFFENDING_VM = "vms"
+class DeviationKeys(object):
+    DEVIATING_VM = "vms"
     RES_TRACKER = "resources"
-    OFFENDING_USERS = "users"
+    DEVIATING_USERS = "users"
 
 class HealthStatus(object):
     """To calculate the health status of the cluster based on the health score

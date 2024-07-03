@@ -41,6 +41,8 @@ def list_clusters():
 @cluster.command(name="info")
 @click.argument('cluster_name')
 def cluster_info(cluster_name):
+    """Gets the memory consumed by the running VM for a cluster
+    """
     res = requests.get(LOCAL_ENDPOINT + CLUSTER_EP + f'/{cluster_name}', headers=CLI_HEADERS)
     if res.status_code == HTTPStatus.NOT_FOUND:
         click.echo(f"Cluster with name {cluster_name} not found in the cache!")
@@ -52,11 +54,11 @@ def cluster_info(cluster_name):
     mem_state = cluster_info['health_status']['memory_state']
     mem_perc = cluster_info['health_status']['memory_perc']
     if mem_state == HealthStatus.HEALTHY[2]:
-        click.secho(f"Cluster '{cluster_name}' is HEALTHY.\n\tMemory Used: {mem_perc:.3f}%", fg=HealthStatus.HEALTHY[3])
+        click.secho(f"Cluster '{cluster_name}' is HEALTHY.\n\tMemory Used by VMs: {mem_perc:.3f}%", fg=HealthStatus.HEALTHY[3])
     elif mem_state == HealthStatus.CRITICAL[2]:
-        click.secho(f"Cluster '{cluster_name}' is CRITICAL.\n\tMemory Used: {mem_perc:.3f}%", fg=HealthStatus.CRITICAL[3])
+        click.secho(f"Cluster '{cluster_name}' is CRITICAL.\n\tMemory Used by VMs: {mem_perc:.3f}%", fg=HealthStatus.CRITICAL[3])
     elif mem_state == HealthStatus.UNHEALTHY[2]:
-        click.secho(f"Cluster '{cluster_name}' is UNHEALTHY.\n\tMemory Used: {mem_perc:.3f}%", fg=HealthStatus.UNHEALTHY[3])
+        click.secho(f"Cluster '{cluster_name}' is UNHEALTHY.\n\tMemory Used by VMs: {mem_perc:.3f}%", fg=HealthStatus.UNHEALTHY[3])
     else:
         click.secho(f"Cluster '{cluster_name}' is UNKNOWN.", fg='red')
         
