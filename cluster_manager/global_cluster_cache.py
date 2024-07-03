@@ -848,7 +848,7 @@ class GlobalClusterCache(object):
             if email is not None:
                 if email in self.GLOBAL_USER_CACHE:
                     user_obj = self.GLOBAL_USER_CACHE[email]
-                    is_offending, offenses = \
+                    is_offending, offenses, quotas = \
                         user_obj.is_over_utilizing_quota()
                     if not is_offending:
                         GLOBAL_MGR_LOGGER.info(f"User {email} requested for "
@@ -856,12 +856,12 @@ class GlobalClusterCache(object):
                                                "utilization detected.")
                         return {}
                     else:
-                        offending_users[email] = offenses
+                        offending_users[email] = {'offenses': offenses, 'quotas': quotas}
             else:
                 for email, user_obj in self.GLOBAL_USER_CACHE.items():
-                    is_offending, offenses = user_obj.is_over_utilizing_quota()
+                    is_offending, offenses, quotas = user_obj.is_over_utilizing_quota()
                     if is_offending:
-                        offending_users[email] = offenses
+                        offending_users[email] = {'offenses': offenses, 'quotas': quotas}
         return offending_users
 
     def get_offending_items(self, get_users_over_util=True,

@@ -157,7 +157,8 @@ class Cluster:
         self.cluster_info_populated = True
         pass
 
-    def summary(self, summary_verbosity=0, print_summary=False) -> typing.Optional[typing.Dict]:
+    def summary(self, summary_verbosity=0, print_summary=False
+                ) -> typing.Optional[typing.Dict]:
         """Summaries the Cluster, Can print the summary or get a JSON which holds everything.
             Args:
                 summary_verbosity (int): Level at which the summary should be presented
@@ -222,10 +223,27 @@ class Cluster:
         """
         if timestamp not in self.vms_not_following_naming_conv:
             self.vms_not_following_naming_conv[timestamp] = []
-        self.vms_not_following_naming_conv[timestamp].append((uuid, vm_name))
+        # Since the mapping comes from cache, the VM is already part of the Cache
+        vm_obj = self.vm_cache.get(uuid, None)
+        if not vm_obj:
+            vm_obj = self.power_off_vms.get(uuid, None)
+        cores = vm_obj.cores_used_per_vcpu * vm_obj.num_vcpu if vm_obj.power_state == PowerState.ON else 0
+        mem = vm_obj.memory if vm_obj.power_state == PowerState.ON else 0
+        power_state = vm_obj.power_state
+        self.vms_not_following_naming_conv[timestamp].append((uuid, vm_name, cores, mem, power_state))
 
-    def get_vm_with_no_prefix(self) -> list:
+    def get_vm_with_no_prefix(self,
+                              sort_by_power_state=False,
+                              sort_by_memory=False,
+                              sort_by_cores=False) -> list:
         """Returns a new VM whch does not have a recognizable prefix to the cache
+            By default sorts the list by the name of the VM.
+
+            Args:
+                sort_by_power_state (bool): Sort the list by the power state of the VM
+                sort_by_memory (bool): Sort the list by the memory allocated to the VM
+                sort_by_cores (bool): Sort the list by the number of cores allocated to the VM
+
             Returns
                 list of tuple(uuid, name) of the VM whose name does not \
                 conform to the naming convention
@@ -234,7 +252,10 @@ class Cluster:
         for ts, _ in self.vms_not_following_naming_conv.items():
             if ts > biggest_ts:
                 biggest_ts = ts
-        return self.vms_not_following_naming_conv.get(biggest_ts, {})
+        vm_list = self.vms_not_following_naming_conv.get(biggest_ts, [])
+        if sort_by_power_state:
+            return sorted(vm_list, key=lambda x: x[4])
+        return sorted(vm_list, key=lambda x: x[1].lower())
 
     def build_refresh_cache(self) -> None:
         """Build and/or refresh the VM cache for the cluster.
@@ -1062,10 +1083,10 @@ class Cluster:
                 # The cores is not a useful metric, as the cores are volatile.
                 "absolute_available_cores": self.abs_available_cores,
                 # Return the calculated perc used for memory and cores
-                "memory_perc": 100 - (self.abs_utilized_resources[ClusterKeys.MEMORY] /
-                                self.abs_available_memory) * 100,
-                "cores_perc": 100 - (self.abs_utilized_resources[ClusterKeys.CORES] /
-                                self.abs_available_cores) * 100
+                "memory_perc": round((self.abs_utilized_resources[ClusterKeys.MEMORY] /
+                                self.abs_available_memory) * 100, 2),
+                "cores_perc": round((self.abs_utilized_resources[ClusterKeys.CORES] /
+                                self.abs_available_cores) * 100, 2)
             }
             core_hs = HealthStatus.get_health_status(status_dict['cores_perc'])
             memory_hs = HealthStatus.get_health_status(status_dict['memory_perc'])

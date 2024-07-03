@@ -26,7 +26,7 @@ def get_cache_summary():
 
 
 @cache_blue_print.route("/cache/offenses", methods=[HTTPMethod.GET])
-def get_all_offenses():
+def get_all_overutil():
     global_cache = GlobalClusterCache()
     if 'Accept' in request.headers and request.headers['Accept'] == 'application/json':
         resources_req = False
@@ -49,8 +49,8 @@ def get_all_offenses():
             cluster_name=cluster_param,
             print_summary=True)
         if offending_items:
-            user_offenses, vm_resources, vms_without_prefix = offending_items
-            response["users"] = user_offenses
+            user_overutil, vm_resources, vms_without_prefix = offending_items
+            response["users"] = user_overutil
             response["vms"] = vms_without_prefix
             response["resources"] = vm_resources
             return jsonify(response), HTTPStatus.OK
@@ -67,13 +67,26 @@ def get_all_offenses():
             cluster_name=cluster_param,
             print_summary=False)
         if offending_items:
-            user_offenses, vm_resources, vms_without_prefix = offending_items
-            response["users"] = user_offenses
+            user_overutil, vm_resources, vms_without_prefix = offending_items
             response["vms"] = vms_without_prefix
             response["resources"] = vm_resources
+
+            user_dict = {}
+            for email, info in user_overutil.items():
+                user_dict[email] = {}
+                for cname, use_info in info['offenses'].items():
+                    user_dict[email][cname] = {
+                        "used_cores": use_info.get('cores', '-'),
+                        "used_memory": use_info.get('memory', '-'),
+                        "quota_cores": info.get('quotas', {}).get(cname, {}).get('cores', '-'),
+                        "quota_memory": info.get('quotas', {}).get(cname, {}).get('memory', '-'),
+                    }
+            response["users"] = user_dict
+
+        cluster_health = {}
         for c_name in global_cache.GLOBAL_CLUSTER_CACHE:
-            response['health_status'][c_name] = global_cache.GLOBAL_CLUSTER_CACHE[c_name].get_health_status()
-        return render_template("offenses.html", offenses=response)
+            cluster_health[c_name] = global_cache.GLOBAL_CLUSTER_CACHE[c_name].get_health_status()
+        return render_template("offenses.html", offenses=response, chealth=cluster_health)
 
 
 
@@ -86,21 +99,21 @@ def force_cache_refresh():
 
     
 
-@cache_blue_print.route("/cache/offenses/retain", methods=[HTTPMethod.PUT])
+@cache_blue_print.route("/cache/overutil/retain", methods=[HTTPMethod.PUT])
 def update_offesne_retain_count():
-    """Update the count of offenses to retain in the cache."""
+    """Update the count of overutil to retain in the cache."""
     arguments = json.loads(request.json)
-    if 'retain_offense' in arguments:
+    if 'retain_overutil' in arguments:
         try:
-            new_retain_val = int(arguments['retain_offense'])
-            msg = f"Updated the Offense retention from"\
-                  f" {os.environ.get('offense_cache_retain', DEFAULT_OFFENSE_RETAIN_VALUE)} "\
+            new_retain_val = int(arguments['retain_overutil'])
+            msg = f"Updated the overutil retention from"\
+                  f" {os.environ.get('overutil_cache_retain', DEFAULT_OFFENSE_RETAIN_VALUE)} "\
                   f"to {new_retain_val}"
-            os.environ['offense_cache_retain'] = str(new_retain_val)
+            os.environ['overutil_cache_retain'] = str(new_retain_val)
             GLOBAL_MGR_LOGGER.info(msg)
             return jsonify({'message': msg}), HTTPStatus.OK
         except ValueError:
             err_str = "Please provide integer value for count of timed "\
-                      f"offenses to retain. '{arguments['retain_offense']}'"\
+                      f"overutil to retain. '{arguments['retain_overutil']}'"\
                       " is invalid."
             return jsonify({'message': err_str}), HTTPStatus.INTERNAL_SERVER_ERROR

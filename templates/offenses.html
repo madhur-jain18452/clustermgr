@@ -71,18 +71,24 @@
                 <!-- <th>Sr. No.</th> -->
                 <th>Email</th>
                 <th>Cluster Name</th>
-                <!-- <th>Global</th> -->
-                <th>Over-usage</th>
+                <th>Quota</th>
+                <th>Usage</th>
             </tr>
-            {% for email, clusters in offenses.get('users', {}).items() %}
-            {% set row_count = clusters|length %}
-            {% for cluster_name, specs in clusters.items() %}
+            {% for email, cluster_res_info in offenses.get('users', {}).items() %}
+            {% set row_count = cluster_res_info|length %}
+            {% for cluster_name, specs in cluster_res_info.items() %}
                 <tr>
                     {% if loop.first %}
                         <td rowspan="{{ row_count }}">{{ email }}</td>
                     {% endif %}
                     <td>{{ cluster_name }}</td>
-                    <td>{{ specs }}</td>
+                    <td>{{ specs['quota_cores'] }} Cores, {{ specs['quota_memory'] / 1024 }} GB</td>
+                    {% set core_color = "red" if specs['quota_cores'] < specs['used_cores'] else "black" %}
+                    {% set mem_color = "red" if specs['quota_memory'] < specs['used_memory'] else "black" %}
+                    <td>
+                        <span style="color: {{core_color}};">{{ specs['used_cores'] }} Cores</span>, 
+                        <span style="color: {{mem_color}};">{{ specs['used_memory'] / 1024 }} GB</span>
+                    </td>
                 </tr>
             {% endfor %}
         {% endfor %}
@@ -92,22 +98,29 @@
     <h2 style="padding-left: 2%;">List of VMs whose owners could not be verified</h2>
     {% for cname, vm_info_list in offenses.get("vms", {}).items() %}
     <div style="margin: 5px;">
-        {% set mem_health = offenses.get("health_status", {}).get(cname).get("memory_state", "UNKNOWN") %}
+        {% set mem_health = chealth.get(cname, {}).get('memory_state', 'UNKNOWN') %}
+        {% set mem_perc = chealth.get(cname, {}).get("memory_perc", "-") %}
         {% set color = "red" if mem_health == "UNHEALTHY" else "GoldenRod" if mem_health == "CRITICAL" else "green" if mem_health == "HEALTHY" else "DarkRed" %}
-        <button type="button" class="collapsible" style="color: {{ color }};">{{ cname }} : {{ vm_info_list | length }} VMs -- Memory Health: {{ mem_health }}</button>
+        <button type="button" class="collapsible" style="color: {{ color }};">{{ cname }} : {{ vm_info_list | length }} VMs -- Memory Health: {{ mem_perc }}% ({{ mem_health }})</button>
         </button>
         <div class="content">
             <table class="w3-table w3-striped w3-bordered">
                 <tr>
-                    <th>sr_no</th>
+                    <th>Sr. No.</th>
                     <th>VM Name</th>
-                    <th>VM UUID</th>
+                    <th>Power State</th>
+                    <th>Cores</th>
+                    <th>Memory</th>
+                    <th>UUID</th>
                 </tr>
                 {% set sr_no = 1 %}
                 {% for each_vm in vm_info_list %}
                 <tr>
                     <td>{{ loop.index }}</td>
                     <td>{{ each_vm[1] }}</td>
+                    <td>{{ each_vm[4] }}</td>
+                    <td>{{ each_vm[2] if each_vm[2] != 0 else '-' }}</td>
+                    <td>{{ '{} GB'.format(each_vm[3] / 1024) if each_vm[3] != 0 else '-' }}</td>
                     <td>{{ each_vm[0] }}</td>
                 </tr>
                 {% set sr_no = sr_no + 1 %}

@@ -1,90 +1,828 @@
 {
   "resources": {},
   "users": {
-    "sahil.naphade@nutanix.com": {
-      "global": {
-        "cores": 7,
-        "memory": 12288
+    "anjali.mishra@nutanix.com": {
+      "offenses": {
+        "global": {
+          "cores": 17,
+          "memory": 47104
+        },
+        "tade": {
+          "cores": 17,
+          "memory": 47104
+        }
       },
-      "test": {
-        "cores": 7,
-        "memory": 14336.0
+      "quotas": {
+        "global": {
+          "cores": 2,
+          "memory": 2048
+        },
+        "tade": {
+          "cores": 1,
+          "memory": 1024
+        },
+        "tomahawk": {
+          "cores": 1,
+          "memory": 1024
+        }
+      }
+    },
+    "daljit.singh@nutanix.com": {
+      "offenses": {
+        "global": {
+          "cores": 34,
+          "memory": 73728
+        },
+        "tade": {
+          "cores": 34,
+          "memory": 73728
+        }
+      },
+      "quotas": {
+        "global": {
+          "cores": 25,
+          "memory": 102400
+        },
+        "tade": {
+          "cores": 8,
+          "memory": 12288
+        },
+        "tomahawk": {
+          "cores": 9,
+          "memory": 15360
+        }
+      }
+    },
+    "sahil.garg1@nutanix.com": {
+      "offenses": {
+        "global": {
+          "cores": 9,
+          "memory": 8192
+        },
+        "tade": {
+          "cores": 9,
+          "memory": 8192
+        }
+      },
+      "quotas": {
+        "global": {
+          "cores": 25,
+          "memory": 102400
+        },
+        "tade": {
+          "cores": 8,
+          "memory": 12288
+        },
+        "tomahawk": {
+          "cores": 9,
+          "memory": 15360
+        }
+      }
+    },
+    "sahil.naphade@nutanix.com": {
+      "offenses": {
+        "global": {
+          "cores": 4,
+          "memory": 4096
+        }
+      },
+      "quotas": {
+        "global": {
+          "cores": 1,
+          "memory": 4096
+        }
       }
     }
   },
   "vms": {
-    "test": [
+    "tade": [
       [
-        "fc8ea0b6-7947-483d-b789-259ddae5b647",
-        "yash-msp-28c7a6-default-0"
+        "9f1fd4fd-8b9d-4da5-a2ee-9664a5511f5f",
+        "AASHISH_ERA_SERVER_1",
+        0,
+        0,
+        "off"
       ],
       [
-        "d56cd68d-452e-414b-9aa8-49b1b8f22b61",
-        "mysql-tx-router-01"
+        "59abfaa4-7042-4b55-8502-cda72c1c98dc",
+        "AASHISH_EraAgent_Era_Agent_urqd_DO_NOT_DELETE",
+        0,
+        0,
+        "off"
       ],
       [
-        "deaeda2a-3907-45d9-b774-b67b480edc43",
-        "mysql-router_02"
+        "0d7924e6-56e8-4c3b-9620-5fc0caa35989",
+        "aashish_pg_1",
+        0,
+        0,
+        "off"
       ],
       [
-        "ec713565-3d58-4f30-bef0-1d05fd9b654a",
-        "kim-ndb-server-2.6"
+        "462fcbc3-eb10-43cd-9065-ab4e6106fb31",
+        "akshay_era_server09feb_DO_NOT_DELETE",
+        4,
+        6144,
+        "on"
       ],
       [
-        "f007549c-2c7f-4b85-b974-9a2012f339bb",
-        "atalesara-era"
+        "a97e9301-8e41-49bd-8664-e101f9721582",
+        "akshay_ERA_SERVER_final",
+        0,
+        0,
+        "off"
       ],
       [
-        "19aea161-7c14-4a81-b485-b2655b4426e2",
-        "mysql-tx-db-01"
+        "e9f1e31b-770a-4af7-a8db-8be51bcc181c",
+        "akshay_pg_server09Feb_DO_NOT_DELETE",
+        0,
+        0,
+        "off"
       ],
       [
-        "2be28ae5-270e-4236-8589-d15bbff10ede",
-        "mysql-db-02"
+        "6996f123-ba45-4139-a496-90e99a52631f",
+        "anj-EraAgent_Era_Agent_hver_DO_NOT_DELETE",
+        4,
+        4096,
+        "on"
       ],
       [
-        "362008b9-52e6-4d6a-82cb-9837c3c3303a",
-        "certificate-test-63a86e-hzmlwowmwy-envoy-0"
+        "f9ec07c5-2229-430c-9f7e-bc2f650bcf24",
+        "anurag_ERA_SERVER_Tade",
+        4,
+        6144,
+        "on"
       ],
       [
-        "55ddbc37-e410-49a3-b3f3-04184fe70782",
-        "mysql-router_01"
+        "8cee4bd5-96c7-4d28-9c6a-934f15ad5475",
+        "Anurag_MongoDB_RHEL87_Template",
+        4,
+        8192,
+        "on"
       ],
       [
-        "66bd4cc6-22e7-4ccf-b32b-b87b6280a5a0",
-        "yash-msp-28c7a6-envoy-abc-0"
+        "b0db319c-2cd4-4830-8aee-6c5a1428c9ac",
+        "AnuragMongo23FEBN",
+        2,
+        8192,
+        "on"
       ],
       [
-        "66d2173f-c50c-4599-86cc-3022c329a84b",
-        "certificate-test-63a86e-default-0"
+        "b9600aaa-8699-4466-bd2c-f762323dff27",
+        "AnuragPostCTE_Feb_29",
+        2,
+        4096,
+        "on"
       ],
       [
-        "84e95ce0-d89f-4223-88b5-5422a4bc4429",
-        "kim-ndb-server"
+        "d94851d8-32a3-4404-afd1-ba777ec3ee81",
+        "bram_new_with_tmp_2024_Mar_06_20_07_29",
+        1,
+        2048,
+        "on"
       ],
       [
-        "84f278b5-124a-4bc3-8e63-0774c77419d3",
-        "mysql-db-01"
+        "64efbf67-9b27-45b5-8021-320e2ad90aca",
+        "cpaas-prism_api_mock",
+        0,
+        0,
+        "off"
       ],
       [
-        "a9af6fb4-9e38-4b84-b845-97c27bcc2d77",
-        "atalesara-ndb-era"
+        "75613d32-2029-41b8-90ef-9a19c0eb23d6",
+        "cpaas-prism_api_mock1",
+        0,
+        0,
+        "off"
       ],
       [
-        "c3eeff6d-020e-47d8-b34c-602f2246fe50",
-        "rocky-ndb1"
+        "d57c5778-0630-4e6b-812d-84a009c3c739",
+        "CTE_FromProfile",
+        2,
+        4096,
+        "on"
       ],
       [
-        "c8b9291a-1390-419e-bed9-45f6f0f62f7b",
-        "auto_pc_6660694457f2f3a202e81b750"
+        "f19d01f1-5895-4b7e-bc96-6afe9a370a79",
+        "db_access_user_db_svr",
+        0,
+        0,
+        "off"
       ],
       [
-        "d631821d-06a9-48fc-8da1-1bb909878fb2",
-        "mysql-db-03"
+        "4d523475-fc82-4d9e-8644-a31792be76e2",
+        "deepak_ndb",
+        4,
+        8192,
+        "on"
       ],
       [
-        "76194651-17f2-44e9-a0b9-423ae3c304f7",
-        "mysql-db-00"
+        "ec273bd4-2d4b-4f6b-a928-d3d47f767192",
+        "deepak_test1",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "482c411d-a5c6-4f61-8617-5344060e2d81",
+        "deepak_test2",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "45e69536-9edb-47b2-a56f-6102d5fd3855",
+        "DUMMY_CLIENT_MOCKER_DO_NOT_DELETE",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "946cf1a1-b033-448f-96c9-a28f2361c3ef",
+        "era5654538c-be8a-11ee-a4f1-f4cbedbec3cd0ea8c2b4",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "36504fc4-5ce3-4121-8927-00ff957b65df",
+        "era_J5BG_ERA_SERVER_20240418_181656_321_DELETE_ME",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "a75a6451-5ced-4740-a8a8-61b75c69d457",
+        "ERA_SERVER_RBC_SCALE_TEST",
+        4,
+        4096,
+        "on"
+      ],
+      [
+        "192aac66-dc6a-4b3e-b330-c0868a609965",
+        "EraOOBSWProfile_Temp_VM_231206T225833ef7e40b8",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "8b797fb8-0d98-4d4c-ae4a-13a14b7c9327",
+        "EraOOBSWProfile_Temp_VM_231206T231507ff5f19e7",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "cf35f9cd-4fcd-4c7c-ac9f-1ecb192f3040",
+        "EraOOBSWProfile_Temp_VM_240530T205203cd613f95",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "d093a224-417c-4f3b-a372-36830ea4c257",
+        "kim-ndb-server",
+        4,
+        8192,
+        "on"
+      ],
+      [
+        "39472331-3dc1-449d-8cf0-31a3450f1983",
+        "manas_ndb_server",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "2dac4881-fd2b-4c50-b555-bf844f34ab93",
+        "manish__68JO_ERA_SERVER_20231013_043513_135_DELETE_ME",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "5c76837a-7f34-48ed-809a-4acb5b118678",
+        "MARIADB_WORKING_TEMPLATE_SOURCE",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "1fd06616-b139-4315-87fd-71b82b044cff",
+        "MARIADB_WORKING_TEMPLATE_TARGET",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "16377126-d916-4973-8ff8-4e0010ee764e",
+        "mgreparbitersudo1",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "f35440eb-33df-4e42-a9f5-29968588a6db",
+        "mgreparbitersudo2",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "dbae36f8-57e7-415b-b1e2-493c769cc4d4",
+        "mgreparbitersudo3",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "61a3cdd0-7941-47cb-b413-01cb9928b225",
+        "mihailo.jele_Era_Agent_rvax_DO_NOT_DELETE",
+        4,
+        4096,
+        "on"
+      ],
+      [
+        "4b90688c-f0bd-4feb-9695-e52bf86d0630",
+        "mongodb_4.4.24_latest_tools_mongosh_2023_Nov_01_20_22_54",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "25aeffef-1fc3-4373-8b8a-914d3e29beb3",
+        "mongodb_4.4.24_latest_tools_mongosh_2023_Nov_01_20_24_32",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "a3a9a839-9d0e-4c86-a3c4-f7b6b5fddf89",
+        "mrdl-wsfc-17071",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "f322ddd9-0bd6-4780-ac69-e26a8380a641",
+        "mrdl-wsfc-17072",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "b9235232-50f7-4f13-80ed-5daa63e7dad4",
+        "nandish_era_server",
+        8,
+        12288,
+        "on"
+      ],
+      [
+        "ba7c8610-3fa5-4e7e-819f-c5ec7f6804c7",
+        "nandish_mock_dbserver_DO_NOT_DELETE",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "11bee472-8291-4a43-ab3b-76d00e99c95a",
+        "Omkar_agent_hang_server",
+        4,
+        4096,
+        "on"
+      ],
+      [
+        "fdb795d4-eb1b-4265-aefb-ec8d48e2e1ec",
+        "Omkar_dev_vm",
+        4,
+        4096,
+        "on"
+      ],
+      [
+        "53f32eaa-6e41-477a-9856-8a7ec410e1df",
+        "Omkar_ndb_server",
+        4,
+        4096,
+        "on"
+      ],
+      [
+        "f0eedbf0-b578-4b57-9b16-c73ce1d48b7c",
+        "omkar_pg_hang_1",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "1a525f3a-019c-410b-a4d7-658515532c83",
+        "omkar_pg_hang_10",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "2ab2703d-9efc-41c2-9941-bc93e7b32de0",
+        "omkar_pg_hang_11",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "689a0078-9a0b-49ad-9ef3-0aaa15dc1004",
+        "omkar_pg_hang_12",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "c426caa4-c0e7-4ec1-bf71-6ad66abee983",
+        "omkar_pg_hang_13",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "d76ff573-4fba-4771-96c6-42f9c0bb2867",
+        "omkar_pg_hang_14",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "5f2c25da-343e-470d-bbc6-5893cecb8e60",
+        "omkar_pg_hang_15",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "10f49aad-f408-45ad-b215-d051d16831f9",
+        "omkar_pg_hang_16",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "6e85e0fd-9daa-4d25-bfaf-68eec535b192",
+        "omkar_pg_hang_17",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "5d96272b-d669-4932-b0f1-1275b9752e44",
+        "omkar_pg_hang_18",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "53362af5-9e28-4280-bb29-0f372a75ab57",
+        "omkar_pg_hang_19",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "5a71131c-3839-4ece-b937-613399809eb9",
+        "omkar_pg_hang_2",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "992945aa-cf7c-48d5-9b12-72af27033554",
+        "omkar_pg_hang_20",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "f501f472-591c-428d-b1fd-012953195b11",
+        "omkar_pg_hang_21",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "d31e6712-dc8a-45e3-a6e9-e17aa3275703",
+        "omkar_pg_hang_22",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "9ff4b59e-ecde-461e-b9ba-e1a3dfde63e6",
+        "omkar_pg_hang_23",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "a04a25e0-1b8c-4102-865d-3d4f6967d336",
+        "omkar_pg_hang_24",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "d3193297-4eb5-46a7-ad3c-88852b44fa64",
+        "omkar_pg_hang_25",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "ad261594-a564-4cd4-9eef-326260f19d76",
+        "omkar_pg_hang_26",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "e8a9d678-a29d-486a-b939-af4e4689fe05",
+        "omkar_pg_hang_27",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "f9614b1a-d3c3-4ef7-828a-1552242cf491",
+        "omkar_pg_hang_28",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "9e7abdea-7972-4050-91f8-b5c95ad72ed9",
+        "omkar_pg_hang_29",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "62ea6f48-20e6-49dc-b206-50f064cc12e0",
+        "omkar_pg_hang_3",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "2e08578a-4454-43c1-a7f6-6b4a978af14e",
+        "omkar_pg_hang_30",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "167d0ec2-c789-4d20-ad39-a62b1c43a5bc",
+        "omkar_pg_hang_32",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "97e85842-5f57-4fcb-8191-82e834e244bf",
+        "omkar_pg_hang_4",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "e9f7d9d6-d73a-4821-8786-6d3d6bd0319f",
+        "omkar_pg_hang_5",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "c4dfa4b6-2232-4ded-95f2-be94bb73c272",
+        "omkar_pg_hang_6",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "3e33073e-1e9d-4c3f-9db0-97849dc4ad7c",
+        "omkar_pg_hang_7",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "fd387031-e755-4548-a730-599f4f0f69b0",
+        "omkar_pg_hang_8",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "4c2c158d-9c08-47d1-a894-af2803fc2bc9",
+        "omkar_pg_hang_9",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "07a4868f-d211-463b-a3cc-f488d5b8233f",
+        "Omkar_ubuntu_mongodb_dnt_delete",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "e179513e-0caa-416e-a434-cf0931a79f27",
+        "Omkar_windows_dev_test",
+        4,
+        8192,
+        "on"
+      ],
+      [
+        "a0f492dc-dbe9-48e5-9ffd-2ea6db77b73b",
+        "Pavanp_AA2C_ERA_SERVER_20230710_113423_842_DELETE_ME",
+        9,
+        8192,
+        "on"
+      ],
+      [
+        "0db37228-61d2-4e42-b1f6-f524e3dfd3d0",
+        "pg-test_haproxy1",
+        1,
+        2048,
+        "on"
+      ],
+      [
+        "5a22bddc-f19e-43dd-856f-b93b77764c91",
+        "pg3_haproxy1",
+        1,
+        2048,
+        "on"
+      ],
+      [
+        "7cfa330d-3315-4e18-8b13-8653f01f014d",
+        "pg_ multicluster-2",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "930d3e0c-f1d8-493f-b6ec-ae4d4afda09c",
+        "POSTGRES_10.4_OOB_2023_Nov_21_13_41_40",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "0b404af8-7fbb-4a86-a253-fc74416e504a",
+        "psql_tz",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "b78d771d-bc2e-4a2e-a82f-ba1ff214629b",
+        "shristy_agarwal_0U9F_ERA_SERVER_20240425_193312_192_DELETE_ME",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "4287c402-b551-41d4-ba09-a1988dbb2507",
+        "shristy_agarwal_73WH_ERA_SERVER_20240427_001441_488_DELETE_ME",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "cfcc53f5-84df-45c6-8296-ce59b25a6353",
+        "shristy_agarwal_D448_postgres_20240427_011048_585_DELETE_ME-0",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "c365edf5-b496-4aa3-b3fb-d20e17214b94",
+        "shristy_agarwal_E136_postgres_DEVTEST_20240427_011048_585_DELETE_ME-0",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "4bebb844-6f03-40ca-b4cb-f324fdb5e572",
+        "shristy_agarwal_X99B_postgres_20240425_202921_307_DELETE_ME-0",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "da676834-98af-44d7-903e-53553b570890",
+        "sinham_era_server",
+        12,
+        16384,
+        "on"
+      ],
+      [
+        "6d13a55a-c9bf-4367-9cce-43fc8f1e3e6f",
+        "sinham_era_server_1",
+        12,
+        16384,
+        "on"
+      ],
+      [
+        "2bc6a535-f555-4fad-bd96-747b44553410",
+        "sinham_pg_svr_1_IN_USE_DO_NOT_DELETE",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "d92bcbd0-97b1-4be1-b7ad-f681a6d4b202",
+        "sinham_pg_svr_1_IN_USE_DO_NOT_DELETE_2023_Nov_23_13_00_32",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "2d775920-1ce8-4c83-bb01-122b42e9587d",
+        "sinham_pg_svr_45_1_IN_USE_DO_NOT_DELETE",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "acaeef20-e5f4-447e-a0eb-f7d65bb99d16",
+        "sinham_pg_svr_clone_DO_NOT_DELETE",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "52909c2d-93da-4e7f-b6ae-c7fe9afa9b77",
+        "sinham_pg_svr_DO_NOT_DELETE",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "12a0f37e-8cfb-4a1b-b81b-3c45b667563c",
+        "sriram-ndb1",
+        4,
+        8192,
+        "on"
+      ],
+      [
+        "6d66e7e7-5727-474d-b40f-f34d4a1967ea",
+        "sriram-pg15.6",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "602b4cea-7437-4abb-aee1-b1ef95c304d6",
+        "Suhas-NDB-Server-1",
+        4,
+        4096,
+        "on"
+      ],
+      [
+        "84e612a3-608c-4d69-95c4-8e0b01593e18",
+        "suhas_pgsi_101",
+        1,
+        1024,
+        "on"
+      ],
+      [
+        "d71018e0-c1ac-4db8-9306-813129495ead",
+        "susee_dev_vm",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "e2ef945a-6e7f-47aa-9785-81f425f7d22b",
+        "WIN12-SQL12SP4_DEVTEST_DONT_DELETE",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "c9430db9-8f03-47ac-8cfb-86bcac1e59ee",
+        "win19-sql19-profile_2023_Jun_23_09_47_41",
+        2,
+        4096,
+        "on"
+      ],
+      [
+        "6ccfcac9-895c-4d5b-923b-23ae132b62c0",
+        "WIN19-SQL19RTM_ENT_DEVTEST_DONT_DELETE",
+        0,
+        0,
+        "off"
+      ],
+      [
+        "444392e3-bd5f-4942-9eaa-f4f0672ff38d",
+        "WIN22-SQL19RTM_ENT_DONT_DELETE",
+        0,
+        0,
+        "off"
       ]
     ]
   }

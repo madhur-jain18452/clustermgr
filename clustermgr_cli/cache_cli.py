@@ -11,14 +11,15 @@ import click
 import json
 import requests
 
+from colorama import Fore, Style, init
 from http import HTTPStatus
 from prettytable import PrettyTable
 from urllib import parse
 
 from .constants import CACHE_EP, LOCAL_ENDPOINT, CLI_HEADERS
 from tools.helper import convert_mb_to_gb
-from caching.server_constants import PowerState
 
+init(autoreset=True)
 
 @click.group()
 def cache():
@@ -43,30 +44,64 @@ def get_offenses(resources, cluster, show_orphan_vms):
     res = requests.get(offense_url + '?' + parse.urlencode(args), headers=CLI_HEADERS)
     
     response_json = res.json()
+    with open('temp.json', 'w') as f:
+        f.write(json.dumps(response_json, indent=2))
     
     # TODO Show VMs that are consuming most resources for this user
     click.echo("\n\nList of Users over-utilizing their quotas:\nShown values are the count of resources being over-utilized.")
-    pt = PrettyTable(["Sr. No.", "User Email", "Cluster Name", "Global", "Resources Over-utilized by"])
+    pt = PrettyTable(["Sr. No.", "User Email", "Cluster Name/Global", "Quota", "Resources Utilization"])
     pt.align["Sr. No."] = 'r'
-    pt.align["Resources Over-utilized by"] = "l" # Left align as we are dumping a JSON
+    pt.align["Quota"] = "l" # Left align as we are dumping a JSON
+    pt.align["Resources Utilization"] = "l" # Left align as we are dumping a JSON
     sr_no = 1
+
+    def _parse_over_util(cluster_res_info, cname):
+        mem_over_util = False
+        core_over_util = False
+        mem_quota = '-'
+        mem_util = '-'
+        core_quota = '-'
+        core_util = '-'
+
+        mem_quota = cluster_res_info['quotas'].get(cname, {}).get('memory', '-')
+        if mem_quota != '-':
+            mem_quota = convert_mb_to_gb(mem_quota)
+        mem_util = cluster_res_info['offenses'].get(cname, {}).get('memory', '-')
+        if mem_util != '-':
+            mem_util = convert_mb_to_gb(mem_util)
+        if mem_util != '-' and mem_quota != '-' and mem_util > mem_quota:
+            mem_over_util = True
+
+        core_quota = cluster_res_info['quotas'].get(cname, {}).get('cores', '-')
+        core_util = cluster_res_info['offenses'].get(cname, {}).get('cores', '-')
+        if core_util != '-' and core_quota != '-' and core_util > core_quota:
+            core_over_util = True
+        return mem_quota, mem_util, mem_over_util, core_quota, core_util, core_over_util
+
     with open('temp.json', 'w') as f:
         f.write(json.dumps(response_json, indent=2))
     for email, cluster_res_info in response_json.get("users", {}).items():
         email_added = False
-        if "global" in cluster_res_info:
+        if "global" in cluster_res_info['offenses']:
             email_added = True
-            row = [sr_no, email, "-", "Yes", json.dumps(cluster_res_info['global'], indent=2)]
+            mem_quota, mem_util, mem_over_util, core_quota, core_util, core_over_util = _parse_over_util(cluster_res_info, 'global')
+            global_quota_str = "{} cores, {} GB".format(core_quota, mem_quota)
+            global_util_str = "{}{} cores{}, {}{} GB{}".format(Fore.RED if core_over_util else Fore.WHITE, core_util, Style.RESET_ALL, Fore.RED if mem_over_util else Fore.WHITE, mem_util, Style.RESET_ALL)
+            row = [sr_no, email, "Global", global_quota_str, global_util_str]
             pt.add_row(row)
-        for cname, resources_info in cluster_res_info.items():
+        for cname, resources_info in cluster_res_info['offenses'].items():
             sub_str = 1
             if cname != 'global':
                 row = []
+                mem_quota, mem_util, mem_over_util, core_quota, core_util, core_over_util = _parse_over_util(cluster_res_info, cname)
+                
+                cluster_quota_str = "{} cores, {} GB".format(core_quota, mem_quota)
+                cluster_util_str = "{}{} cores, {} GB{}".format(Fore.RED if mem_over_util or core_over_util else Fore.WHITE, core_util, mem_util, Style.RESET_ALL)
                 if not email_added:
-                    row = [sr_no, email, cname, "", json.dumps(resources_info, indent=2)]
+                    row = [sr_no, email, cname, cluster_quota_str, cluster_util_str]
                     email_added = True
                 else:
-                    row = [str(sr_no) + '.' + str(sub_str), "", cname, "", json.dumps(resources_info, indent=2)]
+                    row = [str(sr_no) + '.' + str(sub_str), "", cname, cluster_quota_str, cluster_util_str]
                 pt.add_row(row)
         sr_no += 1
     click.echo(pt)
