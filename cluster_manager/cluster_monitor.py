@@ -274,23 +274,44 @@ class ClusterMonitor:
         #     return
         vm_uuids_to_turn_off = []
         users_over_util = continued_deviations.get('users_over_util', {})
+        cm_logger.debug(f"Users over-utilizing the resources: {json.dumps(users_over_util)}")
         for user_email, over_util_cluster_info in users_over_util.items():
             # Store the marked VMs as a tuple(UUID, cluster_name)
             user_vms_marked_power_off = set()
-            # The structure is {user_email: {cluster1: {cores: x, memory: y}}}
+            # The structure is 
+            # "email": {
+            #     "deviations": {
+            #         "global": {
+            #             "cores": val,
+            #             "memory": val
+            #         },
+            #         "cluster1": {
+            #             "cores": val,
+            #             "memory": val
+            #         }
+            #     },
+            #     "quotas": {
+            #         "global": {
+            #             "cores": val,
+            #             "memory": val
+            #         }
+            #     }
+            # }
+            # The 'deviations' is tracking the total utilization of the user in the cluster
             # with global_cache.GLOBAL_USER_CACHE_LOCK:
-            cm_logger.debug(f"User: {user_email} Over-utilization is "
-                            f"{json.dumps(over_util_cluster_info)}")
+            cm_logger.debug(f"User: {user_email} Total utilization is "
+                            f"{json.dumps(over_util_cluster_info['deviations'])}")
             user_json = global_cache.GLOBAL_USER_CACHE[user_email].to_json()
 
             gl_over_util_mem = 0
             gl_over_util_core = 0
             # Global DEVIATION may or may not be populated
-            global_over_util_info = over_util_cluster_info.get("global", {})
+            global_over_util_info = over_util_cluster_info['deviations'].get("global", {})
             if global_over_util_info:
-                gl_over_util_core = global_over_util_info.get("cores", 0)
-                gl_over_util_mem = global_over_util_info.get("memory", 0)
-            for cname, resource_info in over_util_cluster_info.items():
+                gl_over_util_core = global_over_util_info.get("cores", 0) - over_util_cluster_info['quotas'].get('global', {}).get('cores', 0)
+                gl_over_util_mem = global_over_util_info.get("memory", 0) - over_util_cluster_info['quotas'].get('global', {}).get('memory', 0)
+                cm_logger.debug(f"User: {user_email} Global Over-utilization is {gl_over_util_core} cores, {gl_over_util_mem} memory")
+            for cname, resource_info in over_util_cluster_info['deviations'].items():
                 if cname == "global":
                     # We want to take care of the individual clusters first,
                     # and then see if the user is still deviating from their global quota
@@ -299,8 +320,8 @@ class ClusterMonitor:
                 user_vm_list_this_cluster = _user_json_to_list(user_json, cname)
                 # cm_logger.info(f"VM list for the user {user_email}: "
                 #                f"{json.dumps(user_vm_list_this_cluster)}")
-                cl_over_util_core = resource_info.get('cores', 0)
-                cl_over_util_mem = resource_info.get('memory', 0)
+                cl_over_util_core = resource_info.get('cores', 0) - over_util_cluster_info['quotas'].get(cname, {}).get('cores', 0)
+                cl_over_util_mem = resource_info.get('memory', 0) - over_util_cluster_info['quotas'].get(cname, {}).get('memory', 0)
                 # Calculate all the VMs that need to be turned OFF for this cluster util to get under quota
                 # TODO Ignoring the DND VMs
                 if cl_over_util_core > 0 and cl_over_util_mem > 0:

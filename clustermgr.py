@@ -188,7 +188,7 @@ if __name__ == "__main__":
         print(f"Will take action on the continued deviations at every day at "
               f"{parsed_time['day_time']}")
     else:
-        first_action_run = first_mailing + convert_freq_str_to_seconds(args.mail_frequency)
+        first_action_run = first_mailing + convert_freq_str_to_seconds(args.action_frequency)
         action_frequency = parse_freq_str_to_json(args.action_frequency)
         print(f"Will take action on the continued deviations after "
               f"{datetime.fromtimestamp(first_action_run)} with"

@@ -26,7 +26,7 @@ def tool():
 
 @tool.command(name="list-schedules")
 def list_schedules():
-    """List of all the clusters in the cache
+    """List of all the schedules running in the tool
     """
     res = requests.get(LOCAL_ENDPOINT + TOOL_EP, headers=CLI_HEADERS)
     list_funcs = res.json()

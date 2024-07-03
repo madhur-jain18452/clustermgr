@@ -92,7 +92,7 @@ def convert_freq_str_to_seconds(time_str) -> float:
             return freq_val * STR_TO_TIME_UNIT_MAP[str_to_check[-1].lower()][1]
         except ValueError as ve:
             raise Exception(f"Invalid time frequency string {str_to_check} received. Exception: {ve}")
-    raise f"Invalid time frequency string {str_to_check} received."
+    raise Exception(f"Invalid time frequency string {str_to_check} received.")
 
 def time_until_next_run(target_hour, target_minute):
     from datetime import datetime, timedelta
