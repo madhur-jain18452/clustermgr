@@ -11,6 +11,7 @@ import click
 import json
 import requests
 
+from colorama import Fore, Style, init
 from http import HTTPStatus
 from prettytable import PrettyTable
 from urllib import parse
@@ -51,18 +52,16 @@ def cluster_info(cluster_name):
     if 'message' in cluster_info:
         click.secho(cluster_info['message'], fg='red')
         return
-    mem_state = cluster_info['health_status']['memory_state']
-    mem_perc = cluster_info['health_status']['memory_perc']
+    mem_state = cluster_info['health_status'].get('memory_state', HealthStatus.UNKNOWN)
+    mem_perc = cluster_info['health_status'].get('memory_perc', 0.0)
     if mem_state == HealthStatus.HEALTHY[2]:
-        click.secho(f"Cluster '{cluster_name}' is HEALTHY.\n\tMemory Used by VMs: {mem_perc:.3f}%", fg=HealthStatus.HEALTHY[3])
+        click.secho(f"Cluster '{cluster_name}' Memory state is HEALTHY.\n\tMemory Used by VMs: {mem_perc:.3f}%", fg=HealthStatus.HEALTHY[3])
+    elif mem_state == HealthStatus.DEGRADED[2]:
+        click.secho(f"Cluster '{cluster_name}' Memory state is DEGRADED.\n\tMemory Used by VMs: {mem_perc:.3f}%", fg=HealthStatus.CRITICAL[3])
     elif mem_state == HealthStatus.CRITICAL[2]:
-        click.secho(f"Cluster '{cluster_name}' is CRITICAL.\n\tMemory Used by VMs: {mem_perc:.3f}%", fg=HealthStatus.CRITICAL[3])
-    elif mem_state == HealthStatus.UNHEALTHY[2]:
-        click.secho(f"Cluster '{cluster_name}' is UNHEALTHY.\n\tMemory Used by VMs: {mem_perc:.3f}%", fg=HealthStatus.UNHEALTHY[3])
+        click.secho(f"Cluster '{cluster_name}' Memory state is CRITICAL.\n\tMemory Used by VMs: {mem_perc:.3f}%", fg=HealthStatus.UNHEALTHY[3])
     else:
-        click.secho(f"Cluster '{cluster_name}' is UNKNOWN.", fg='red')
-        
-    
+        click.secho(f"Cluster '{cluster_name}' Memory state is UNKNOWN.", fg='red')
 
 @cluster.command(name="add")
 @click.argument('cluster_name')
@@ -345,3 +344,34 @@ def remove_vm_nic(cluster_name, remove, uuid, name):
         click.echo(response['message'])
     else:
         click.echo(res.json())
+
+
+@cluster.command(name='check-util')
+@click.argument('cluster_name')
+@click.option('--cores', '-c', type=int, help="Proposed the CORES allocation")
+@click.option('--memory', '-m', type=float, help="Proposed the Mem allocation")
+def check_over_utilization(cluster_name, cores, memory):
+    """Check the utilization of the cluster
+    """
+    init()
+    if not cores and not memory:
+        click.echo("Please provide either cores or Memory to check the utilization")
+        return
+    params = {}
+    if cores:
+        params['cores'] = cores
+    if memory:
+        params['memory'] = memory * 1024
+    url = LOCAL_ENDPOINT + CLUSTER_EP + f'/{cluster_name}/utilization?' + parse.urlencode(params)
+    res = requests.get(url, headers=CLI_HEADERS)
+    if res.status_code == HTTPStatus.OK:
+        response = res.json()
+        click.secho(f"After allocating {cores} cores and {memory} MB memory, "
+            f"the cluster health status is - "
+            f"CORES: ", nl=False)
+        click.secho(f"{response['cores_status'][2]}", fg=response['cores_status'][3], nl=False)
+        click.secho(f" Memory: ", nl=False)
+        click.secho(f"{response['mem_status'][2]}", fg=response['mem_status'][3])
+    else:
+        click.echo(res.json())
+

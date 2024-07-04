@@ -146,13 +146,14 @@ class DeviationKeys(object):
 class HealthStatus(object):
     """To calculate the health status of the cluster based on the health score
         First value is the lower bound (inclusive)
-        second value is the upper bound (exclusive)
+        second value is the upper bound (exclusive) (except CRITICAL and OVERSUBSCRIBED)
         third value is the status str
         fourth value is the color
     """
     HEALTHY = (0, 75, "HEALTHY", "green")
     DEGRADED = (75, 90, "DEGRADED", "yellow")
     CRITICAL = (90, 100, "CRITICAL", "red")
+    OVERSUBSCRIBED = (100, float('inf'), "OVERSUBSCRIBED", "red")
     UNKNOWN = "UNKNOWN"
     NOT_APPLICABLE = "NOT_APPLICABLE"
 
@@ -161,7 +162,9 @@ class HealthStatus(object):
             return HealthStatus.HEALTHY
         elif HealthStatus.DEGRADED[0] <= score < HealthStatus.DEGRADED[1]:
             return HealthStatus.DEGRADED
-        elif HealthStatus.CRITICAL[0] <= score < HealthStatus.CRITICAL[1]:
+        elif HealthStatus.CRITICAL[0] <= score <= HealthStatus.CRITICAL[1]:
             return HealthStatus.CRITICAL
+        elif HealthStatus.OVERSUBSCRIBED[0] < score < HealthStatus.OVERSUBSCRIBED[1]:
+            return HealthStatus.OVERSUBSCRIBED
         return HealthStatus.UNKNOWN
 

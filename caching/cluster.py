@@ -152,6 +152,7 @@ class Cluster:
         # Stored in Bytes
         self.abs_available_memory = bytes_to_mb(mem)
         self.abs_available_cores = cores
+        CLUSTER_CACHE_LOGGER_.info(f"Total {self.abs_available_cores} cores and {self.abs_available_memory} Memory available on the cluster {self.name}")
 
         # If everything is successful, mark the information is populated
         self.cluster_info_populated = True
@@ -337,7 +338,7 @@ class Cluster:
                 None
         """
         if is_whitelisted:
-            # If the old config is None == new VM
+            # If the old config is None ==> new VM
             if old_config is None:
                 CLUSTER_CACHE_LOGGER_.debug(f"NEW {new_config['name']}:{new_config['power_state']} ==> Resources: core->{new_config['num_cores_per_vcpu'] * new_config['num_vcpus']} memory->{new_config['memory_mb']}")
                 CLUSTER_CACHE_LOGGER_.debug(f"NEW ==> Absolute Resources: {self.abs_utilized_resources}")
@@ -1102,7 +1103,7 @@ class Cluster:
                 }
             }
 
-    def get_updated_health_status(self, new_vm_cores, new_vm_mem):
+    def get_updated_health_status(self, new_cores, new_mem):
         """Get the updated health status of the cluster. Returns percentage of memory and cores still available if we provision a particular VM.
             Args:
                 new_vm_cores (int): Cores used by the new VM
@@ -1110,17 +1111,25 @@ class Cluster:
             Returns:
                 dict: Dictionary containing the health status of the cluster
         """
+        from caching.server_constants import HealthStatus
         if self.cluster_info_populated:
-            return {
-                "memory_perc": 100 - (self.abs_utilized_resources[ClusterKeys.MEMORY] /
+            CLUSTER_CACHE_LOGGER_.info(f"There are {self.abs_utilized_resources} resources being used; and {self.abs_available_cores} cores and {self.abs_available_memory} available")
+            CLUSTER_CACHE_LOGGER_.info(f"CHecking for new resources: {new_cores} cores and {new_mem} memory")
+            info = {
+                "memory_perc": (self.abs_utilized_resources[ClusterKeys.MEMORY] /
                                 self.abs_available_memory) * 100,
-                "cores_perc": 100 - (self.abs_utilized_resources[ClusterKeys.CORES] /
+                "cores_perc": (self.abs_utilized_resources[ClusterKeys.CORES] /
                                 self.abs_available_cores) * 100,
-                "new_memory_perc": 100 - ((self.abs_utilized_resources[ClusterKeys.MEMORY] + new_vm_mem) /
+                "new_memory_perc": ((self.abs_utilized_resources[ClusterKeys.MEMORY] + float(new_mem)) /
                                 self.abs_available_memory) * 100,
-                "new_cores_perc": 100 - ((self.abs_utilized_resources[ClusterKeys.CORES] + new_vm_cores) /
-                                self.abs_available_cores) * 100
+                "new_cores_perc": ((self.abs_utilized_resources[ClusterKeys.CORES] + int(new_cores)) /
+                                self.abs_available_cores) * 100,
             }
+            info['cores_over_sub'] = True if info['new_cores_perc'] > 75 else False
+            info['cores_status'] = HealthStatus.get_health_status(info['new_cores_perc'])
+            info['mem_over_sub'] = True if info['new_memory_perc'] > 75 else False
+            info['mem_status'] = HealthStatus.get_health_status(info['new_memory_perc'])
+            return info
         else:
             return {
                 "message": "Cluster information not populated yet"

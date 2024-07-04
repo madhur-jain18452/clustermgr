@@ -14,11 +14,24 @@ import prettytable
 import requests
 
 from http import HTTPStatus
+from urllib import parse
 
-from .constants import USER_EP, LOCAL_ENDPOINT, CLI_HEADERS
+from .constants import USER_EP, LOCAL_ENDPOINT, CLI_HEADERS, CLUSTER_EP
 from tools.helper import convert_mb_to_gb, BINARY_CONVERSION_FACTOR
 
 BASE_USERS_EP = LOCAL_ENDPOINT + USER_EP
+
+def _check_cluster_overutil_confirm_with_owner(cluster, new_core, new_mem):
+    url = LOCAL_ENDPOINT + CLUSTER_EP + f'/{cluster}/utilization?cores={new_core}&memory={new_mem}'
+    res = requests.get(url, headers=CLI_HEADERS)
+    if res.status_code == HTTPStatus.OK:
+        response = res.json()
+        if response['cores_over_sub'] or response['mem_over_sub']:
+            click.echo(f"Cluster '{cluster}' will be over-subscribed after allowing this quota")
+            if not click.confirm("Do you still want to continue?"):
+                click.echo(f"Skipping the cluster {cluster} quota addition")
+                return False
+    return True
 
 @click.group()
 def user():
@@ -69,8 +82,9 @@ def list(prefix, quota):
 @click.option('--total', type=(int, float), required=True, multiple=False, help="Total quota: cores=<number_of_cores> memory=<memory_in_gb>")
 @click.option('--cluster', type=(str, int, float), multiple=True, help="Per-cluster quota: cores=<number_of_cores> memory=<memory_in_gb>")
 @click.option('--flush', is_flag=True, help="Flush the user list to a file after successful addition. Default is all_users.json")
-@click.option('--file',  type=str, default='all_users.json', help="Name of the file to flush the users list.")
-def add(name, email, prefixes, total, cluster, flush, file):
+@click.option('--file', type=str, default='all_users.json', help="Name of the file to flush the users list.")
+@click.option('--yes', '-y', hidden=True, is_flag=True)
+def add(name, email, prefixes, total, cluster, flush, file, yes):
     """Add a new user to the system"""
     list_pref = prefixes.split(',')
     user_url = BASE_USERS_EP + "/" + email
@@ -90,6 +104,13 @@ def add(name, email, prefixes, total, cluster, flush, file):
     }
     if cluster:
         for cname, core, mem in cluster:
+            # Check if there will be over-subscription. If --yes passed, skip
+            params = {}
+            params['cores'] = core
+            params['memory'] = mem * 1024
+            if not yes:
+                if not _check_cluster_overutil_confirm_with_owner(cname, core, mem):
+                    return
             user_info['quota'].append({cname: {'cores': core, 'memory': mem}})
     res = requests.post(user_url, json=json.dumps(user_info), headers=CLI_HEADERS)
     if res.status_code in [HTTPStatus.ACCEPTED, HTTPStatus.OK]:

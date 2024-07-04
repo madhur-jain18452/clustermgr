@@ -74,3 +74,12 @@ def remove_vm_nic(cluster_name):
     global_cache = GlobalClusterCache()
     status, msg = global_cache.perform_cluster_vm_nic_remove(cluster_name, arguments)
     return jsonify({"resp": msg}), status
+
+@cluster_blue_print.route("/clusters/<cluster_name>/utilization", methods=[HTTPMethod.GET])
+def check_utilization(cluster_name):
+    arguments = request.args.to_dict()
+    global_cache = GlobalClusterCache()
+    if cluster_name not in global_cache.GLOBAL_CLUSTER_CACHE:
+        return jsonify({"error": f"Cluster with name {cluster_name} not found!"}), HTTPStatus.NOT_FOUND
+    u_hs = global_cache.GLOBAL_CLUSTER_CACHE[cluster_name].get_updated_health_status(arguments.get('cores', 0), arguments.get('memory', 0))
+    return jsonify(u_hs), HTTPStatus.OK
