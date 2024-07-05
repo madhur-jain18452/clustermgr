@@ -155,7 +155,7 @@ class GlobalClusterCache(object):
                         summary_verbosity=2,
                         print_summary=print_summary
                     )
-                    GLOBAL_MGR_LOGGER.debug(f"SUMMARY REQUESTED, current:{cache_summary}")
+                    # GLOBAL_MGR_LOGGER.debug(f"SUMMARY REQUESTED, current:{cache_summary}")
             with self.GLOBAL_USER_CACHE_LOCK:
                 for email, user_obj in self.GLOBAL_USER_CACHE.items():
                     cache_summary['user_cache'][email] = user_obj.summary(
@@ -1016,3 +1016,30 @@ class GlobalClusterCache(object):
         except Exception as ex:
             raise ex
         return True
+
+    def remove_user(self, user_email):
+        vms_to_untrack = []
+        with self.GLOBAL_USER_CACHE_LOCK:
+            user_obj = self.GLOBAL_USER_CACHE.get(user_email, None)
+            user_prefixes = user_obj.prefixes
+            if user_obj:
+                for user_pref in user_prefixes:
+                    vm_list_untrack = user_obj.update_prefix(prefix=user_pref, op='remove')
+                    if vm_list_untrack: 
+                        vms_to_untrack.extend(vm_list_untrack)
+                    del self.USER_PREFIX_EMAIL_MAP[user_pref[0].lower()][user_pref]
+                del self.GLOBAL_USER_CACHE[user_email]
+            else:
+                GLOBAL_MGR_LOGGER.error(f"User with email {user_email} not found in the cache")
+                return 1
+            if vms_to_untrack:
+                for (uuid, parent_cluster_name, vm_name) in vms_to_untrack:
+                    cobj = self.GLOBAL_CLUSTER_CACHE[parent_cluster_name]
+                    with cobj.vm_cache_lock:
+                        vm_obj = cobj.vm_cache.get(uuid, None)
+                        if not vm_obj:
+                            vm_obj = cobj.power_off_vms.get(uuid, None)
+                        if vm_obj:
+                            vm_obj.set_owner(None, None)
+                            GLOBAL_MGR_LOGGER.info(f"Untracking the VM {vm_name} for user {user_email}")
+            return 0

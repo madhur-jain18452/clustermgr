@@ -77,6 +77,7 @@ def remove_vm_nic(cluster_name):
 
 @cluster_blue_print.route("/clusters/<cluster_name>/utilization", methods=[HTTPMethod.GET])
 def check_utilization(cluster_name):
+    # TODO Handle the case where the user quota is being updated; instead of new creation
     arguments = request.args.to_dict()
     global_cache = GlobalClusterCache()
     if cluster_name not in global_cache.GLOBAL_CLUSTER_CACHE:

@@ -201,3 +201,12 @@ def list_vms(email, resources, cluster):
     click.echo(pt)
     click.echo(f"\nTotal cores consumed  : {cores_consumed}\nTotal Memory consumed : {memory_consumed} GB")
 
+
+@user.command('remove')
+@click.argument('email')
+def remove_user_cli(email):
+    """Remove a user from the system"""
+    user_url = BASE_USERS_EP + "/" + email
+    res = requests.delete(user_url, headers=CLI_HEADERS)
+    if res.status_code in [HTTPStatus.ACCEPTED, HTTPStatus.OK]:
+        click.echo(f"User '{email}' successfully removed from the cache")

@@ -92,6 +92,15 @@ def add_update_user(email):
     return jsonify({'message': message}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
+@user_blue_print.route("/users/<email>", methods=[HTTPMethod.DELETE])
+def remove_user(email):
+    global_cache = GlobalClusterCache()
+    if global_cache.remove_user(email) == 0:
+        return jsonify({'message': f"User {email} removed successfully."}), HTTPStatus.ACCEPTED
+    else:
+        return jsonify({'message': f"User {email} could not be removed."}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
 @user_blue_print.route("/users/<email>/vms", methods=[HTTPMethod.GET])
 def list_user_vms(email):
     global_cache = GlobalClusterCache()

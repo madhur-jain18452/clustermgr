@@ -6,14 +6,14 @@ users:
       - anjali.m
     quota:
       - tade:
-          cores: 1
-          memory: 1
+          cores: 5
+          memory: 15
       - tomahawk:
-          cores: 1
-          memory: 1
+          cores: 5
+          memory: 20
       - global:
-          cores: 2
-          memory: 2
+          cores: 15
+          memory: 40
   - name: Ajay Gupta
     email: ajay.gupta@nutanix.com
     prefix:
@@ -36,10 +36,10 @@ users:
     quota:
       - tade:
           cores: 8
-          memory: 12
+          memory: 14
       - tomahawk:
-          cores: 9
-          memory: 15
+          cores: 10
+          memory: 12
       - global:
           cores: 25
           memory: 100
@@ -50,24 +50,24 @@ users:
     quota:
       - tade:
           cores: 8
-          memory: 12
+          memory: 8
       - tomahawk:
-          cores: 9
-          memory: 15
+          cores: 14
+          memory: 23
       - global:
-          cores: 25
-          memory: 100
+          cores: 30
+          memory: 76
   - name: Daljit Singh
     email: daljit.singh@nutanix.com
     prefix:
       - daljit
     quota:
       - tade:
-          cores: 8
-          memory: 12
+          cores: 1
+          memory: 8
       - tomahawk:
-          cores: 9
-          memory: 15
+          cores: 5
+          memory: 10
       - global:
           cores: 25
           memory: 100
@@ -77,10 +77,10 @@ users:
       - manav
     quota:
       - tade:
-          cores: 8
-          memory: 12
+          cores: 2
+          memory: 8
       - tomahawk:
-          cores: 9
+          cores: 6
           memory: 15
       - global:
           cores: 25
@@ -91,14 +91,14 @@ users:
       - sahil-garg1
     quota:
       - tade:
-          cores: 8
-          memory: 12
+          cores: 12
+          memory: 14
       - tomahawk:
-          cores: 9
-          memory: 15
+          cores: 5
+          memory: 10
       - global:
           cores: 25
-          memory: 100
+          memory: 25
   - name: Stefan Djuric
     email: stefan.djuric@nutanix.com
     prefix:
@@ -134,17 +134,16 @@ users:
       - eric.s
     quota:
       - global:
-          cores: 100
-          memory: 50
+          cores: 10
+          memory: 12
   - name: Abhishek Talesra
     email: abhishek.talesara@nutanix.com
     prefix:
-      - abhi
-      - abhi.t
+      - atalesra
     quota:
       - global:
-          cores: 10
-          memory: 19
+          cores: 13
+          memory: 11
   - name: Sahil Naphade
     email: sahil.naphade@nutanix.com
     prefix:
@@ -152,5 +151,5 @@ users:
       - sahil.n
     quota:
       - global:
-          cores: 1
-          memory: 4
+          cores: 12
+          memory: 5
