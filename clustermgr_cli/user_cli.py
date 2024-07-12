@@ -158,7 +158,7 @@ def update(email, name, remove_prefixes, add_prefixes, total, cluster):
                 user_info['quota'][cname] = cluster_dict
     res = requests.patch(user_url, json=json.dumps(user_info), headers=CLI_HEADERS)
     if res.status_code in [HTTPStatus.ACCEPTED, HTTPStatus.OK]:
-        click.echo(f"User '{email}' successfully added to the cache")
+        click.echo(f"User '{email}' successfully updated in the cache")
 
 @user.command()
 @click.argument('email')

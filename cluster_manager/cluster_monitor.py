@@ -298,10 +298,10 @@ class ClusterMonitor:
             #     }
             # }
             # The 'deviations' is tracking the total utilization of the user in the cluster
-            # with global_cache.GLOBAL_USER_CACHE_LOCK:
+            # with global_cache.global_user_cache_lock:
             cm_logger.debug(f"User: {user_email} Total utilization is "
                             f"{json.dumps(over_util_cluster_info['deviations'])}")
-            user_json = global_cache.GLOBAL_USER_CACHE[user_email].to_json()
+            user_json = global_cache.global_user_cache[user_email].to_json()
 
             gl_over_util_mem = 0
             gl_over_util_core = 0

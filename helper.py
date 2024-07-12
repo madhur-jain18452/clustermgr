@@ -57,7 +57,7 @@ def parse_freq_str_to_json(frequency_str) -> dict:
     """
     str_to_check = frequency_str.strip()
     # Special case to handle something that needs to run every day at a specific time:
-    if str_to_check[0].startswith("@"):
+    if str_to_check.startswith("@"):
         time_str = str_to_check[1:]
         # Only accept cases where the string is like 530 or 1730
         if len(time_str) not in [3, 4]:
@@ -75,7 +75,7 @@ def parse_freq_str_to_json(frequency_str) -> dict:
         try:
             freq_val = int(frequency_str[0:-1])
         except ValueError as ve:
-            raise f"Invalid time frequency string {str_to_check} received. Exception: {ve}"
+            raise Exception(f"Invalid time frequency string {str_to_check} received. Exception: {ve}")
     else:
         raise ValueError(f"Invalid time frequency string {str_to_check} received.")
     return {freq_unit: freq_val}

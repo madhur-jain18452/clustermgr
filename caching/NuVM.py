@@ -24,12 +24,14 @@ from caching.server_constants import basic_auth_header, PowerState, HTTPS
 from tools.helper import convert_mb_to_gb
 
 urllib3.disable_warnings()
-NUVM_CACHE_LOGGER_ = logging.getLogger(__name__)
-NUVM_CACHE_LOGGER_.setLevel(logging.DEBUG)
-handler = logging.FileHandler(f"cmgr_NuVM.log", mode='a')
-formatter = logging.Formatter("%(name)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
-handler.setFormatter(formatter)
-NUVM_CACHE_LOGGER_.addHandler(handler)
+def setup_logger():
+    logger = logging.getLogger(__name__)
+    if not logger.hasHandlers():
+        logger.setLevel(logging.DEBUG)
+        handler = logging.FileHandler(f"cmgr_NuVM.log", mode='a')
+        formatter = logging.Formatter("%(name)s:%(lineno)d - %(asctime)s %(levelname)s - %(message)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
 NDB_SUBSTR = ["ndb", "era"]
 
@@ -73,9 +75,11 @@ class NuVM:
             config_json (dict): Dictionary containing info about the VM
             parent_cluster_name (str): Name of the cluster running the VM
         """
+        setup_logger()
+        self.logger = logging.getLogger(__name__)
         # Instance private attributes
         self._config = config_json
-        # NUVM_CACHE_LOGGER_.info(config_json)
+        # nuvm_logger.info(config_json)
         self._parent_cluster = parent_cluster_name
         self.nics = self._config.get("vm_nics", [])
         self._ip_address = self.nics[0].get("ip_address") \
@@ -115,7 +119,7 @@ class NuVM:
         if self._ip_address:
             # TODO Out of all assigned IPs, check which IPs are actually usable
             pass
-        NUVM_CACHE_LOGGER_.debug(f"Added VM {self.name[:30]:30},"
+        self.logger.debug(f"Added VM {self.name[:30]:30},"
                                  f" parent cluster {self._parent_cluster},"
                                  f" UUID {self.uuid} to the cache")
 
@@ -143,7 +147,7 @@ class NuVM:
             return
         self.owner = owner_name
         self.owner_email = owner_email
-        NUVM_CACHE_LOGGER_.info(f"Updated owner for VM {self.name[:30]:30}, "
+        self.logger.info(f"Updated owner for VM {self.name[:30]:30}, "
                                 f"parent cluster {self._parent_cluster}, UUID"
                                 f" {self.uuid} -> {owner_email} | {owner_name}")
 
@@ -173,14 +177,14 @@ class NuVM:
                                                                      "Nutanix.1")}'},
                                        verify=False, timeout=2
                                        )
-                    NUVM_CACHE_LOGGER_.debug("IP: {}, Status: {}".format(
+                    self.logger.debug("IP: {}, Status: {}".format(
                         self._ip_address, res.status_code))
-                    # NUVM_CACHE_LOGGER_.debug(res.text)
+                    # self.logger.debug(res.text)
                     # If the password is accepted -- or wrong, it is an ERA CVM
                     if res.status_code in [HTTPStatus.UNAUTHORIZED,
                                            HTTPStatus.OK,
                                            HTTPStatus.ACCEPTED]:
-                        NUVM_CACHE_LOGGER_.info(f"VM '{self.name}': Replied"
+                        self.logger.info(f"VM '{self.name}': Replied"
                                                 f"with status code "
                                                 f"{res.status_code} -> "
                                                 f"{res.reason}")
@@ -199,27 +203,27 @@ class NuVM:
                         urllib3.exceptions.NewConnectionError,
                         urllib3.exceptions.MaxRetryError,
                         requests.exceptions.ConnectionError) as conn_ex:
-                    NUVM_CACHE_LOGGER_.exception(f"The VM '{self.name}' - IP "
+                    self.logger.exception(f"The VM '{self.name}' - IP "
                                                  f"{self._ip_address}: Connection err")
                     #                              f" error: {conn_ex}")
                     self.is_reachable = True
                     self.is_ndb_cvm = False
                     pass
                 except Exception as ex:  # If some other exception occur
-                    NUVM_CACHE_LOGGER_.exception(f"Exception occurred for the IP: "
+                    self.logger.exception(f"Exception occurred for the IP: "
                                                  f"{self._ip_address}: {ex}")
                     self.is_reachable = True
                     self.is_ndb_cvm = False
                     pass
             else:
                 # Check if the name contains the ERA strings
-                NUVM_CACHE_LOGGER_.warning(f"NuVM {self.name} - Valid IP "
+                self.logger.warning(f"NuVM {self.name} - Valid IP "
                                            f"does not exist. Checking if "
                                            f"the name contains any of "
                                            f"{",".join(NDB_SUBSTR)}")
                 ndb_subst_exist, subst = subst_exists(self.name, NDB_SUBSTR)
                 if ndb_subst_exist:
-                    NUVM_CACHE_LOGGER_.info(f"NuVM {self.name} - "
+                    self.logger.info(f"NuVM {self.name} - "
                                             f"contains {subst}. "
                                             f"Categorizing as unreachable "
                                             f"ERA Server.")
@@ -229,12 +233,12 @@ class NuVM:
                 return False, False
         else:
             self.is_reachable = False
-            NUVM_CACHE_LOGGER_.warning(
+            self.logger.warning(
                 f"NuVM {self.name} - is powered off. Checking if the name "
                 f"contains any of {",".join(NDB_SUBSTR)}")
             ndb_subst_exist, subst = subst_exists(self.name, NDB_SUBSTR)
             if ndb_subst_exist:
-                NUVM_CACHE_LOGGER_.info(
+                self.logger.info(
                     f"NuVM {self.name} - contains {subst}. Categorizing"
                     f" as unreachable ERA Server.")
                 self.is_ndb_cvm = True

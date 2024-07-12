@@ -100,8 +100,9 @@
     <div style="margin: 5px;">
         {% set mem_health = chealth.get(cname, {}).get('memory_state', 'UNKNOWN') %}
         {% set mem_perc = chealth.get(cname, {}).get("memory_perc", "-") %}
+        {% set _ip = chealth.get(cname, {}).get("ip", "-") %}
         {% set color = "red" if mem_health == "UNHEALTHY" else "GoldenRod" if mem_health == "CRITICAL" else "green" if mem_health == "HEALTHY" else "DarkRed" %}
-        <button type="button" class="collapsible" style="color: {{ color }};">{{ cname }} : {{ vm_info_list | length }} VMs -- Memory Health: {{ mem_perc }}% ({{ mem_health }})</button>
+        <button type="button" class="collapsible" style="color: {{ color }};">{{ cname }}  <a>[{{ _ip }}]</a>: {{ vm_info_list | length }} VMs -- Memory Health: {{ mem_perc }}% ({{ mem_health }})</button>
         </button>
         <div class="content">
             <table class="w3-table w3-striped w3-bordered">

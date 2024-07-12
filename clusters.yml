@@ -5,31 +5,15 @@ clusters:
     ip: 10.46.211.195
     user: admin
     password: Nutanix.1
-  - name: TOMAHAWK
-    ip: 10.46.31.50
-    user: admin
-    password: Nutanix.1
-  - name: TOMAHAWK4
-    ip: 10.46.31.52
-    user: admin
-    password: Nutanix.1
   - name: era_dev_sap_hana
     ip: 10.50.32.200
     user: admin
     password: Nutanix.1
-  - name: test
+  - name: auto_cluster_prod_pavana_k_f30b8ae03423
     ip: 10.117.18.90
     user: admin
     password: Nutanix.1
   - name: dhruv
     ip: 10.50.32.227
-    user: admin
-    password: Nutanix.1
-  - name: specialty01
-    ip: 10.48.14.19
-    user: admin
-    password: Nutanix.1
-  - name: gemini03
-    ip: 10.46.31.40
     user: admin
     password: Nutanix.1

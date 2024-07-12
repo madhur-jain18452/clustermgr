@@ -34,9 +34,9 @@ def list_clusters():
     """
     res = requests.get(LOCAL_ENDPOINT + CLUSTER_EP, headers=CLI_HEADERS)
     cluster_list = res.json()
-    pt = PrettyTable(['Cluster Name'])
-    for name in cluster_list:
-        pt.add_row([name])
+    pt = PrettyTable(['Cluster Name', 'IP Address'])
+    for info in cluster_list:
+        pt.add_row([info['name'], info['ip']])
     click.echo(pt)
 
 @cluster.command(name="info")
@@ -351,7 +351,7 @@ def remove_vm_nic(cluster_name, remove, uuid, name):
 @click.option('--cores', '-c', type=int, help="Proposed the CORES allocation")
 @click.option('--memory', '-m', type=float, help="Proposed the Mem allocation")
 def check_over_utilization(cluster_name, cores, memory):
-    """Check the utilization of the cluster
+    """Verify the utilization of the cluster AFTER allocating X resources
     """
     init()
     if not cores and not memory:
@@ -369,9 +369,9 @@ def check_over_utilization(cluster_name, cores, memory):
         click.secho(f"After allocating {cores} cores and {memory} MB memory, "
             f"the cluster health status is - "
             f"CORES: ", nl=False)
-        click.secho(f"{response['cores_status'][2]}", fg=response['cores_status'][3], nl=False)
+        click.secho(f"{response['new_cores_perc']:.2f}% {response['cores_status'][2]}", fg=response['cores_status'][3], nl=False)
         click.secho(f" Memory: ", nl=False)
-        click.secho(f"{response['mem_status'][2]}", fg=response['mem_status'][3])
+        click.secho(f"{response['new_memory_perc']:.2f}% {response['mem_status'][2]}", fg=response['mem_status'][3])
     else:
         click.echo(res.json())
 

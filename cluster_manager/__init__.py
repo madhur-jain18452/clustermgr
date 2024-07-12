@@ -16,7 +16,7 @@ For e.g.:
     and 
     'n': {'ns': sahil.naphade@nutanix.com'}
     as
-    USER_PREFIX_EMAIL_MAP = {'s': {...}, 'n': {...}}
+    user_prefix_email_map = {'s': {...}, 'n': {...}}
 
 If prefix conflict occurs, we raise error and ask for a new prefix.
 

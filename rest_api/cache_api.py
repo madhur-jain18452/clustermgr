@@ -13,8 +13,7 @@ import os
 from flask import Blueprint, jsonify, request, render_template
 from http import HTTPStatus, HTTPMethod
 
-from cluster_manager.global_cluster_cache import GlobalClusterCache,\
-    GLOBAL_MGR_LOGGER, DEFAULT_DEVIATION_RETAIN_VALUE
+from cluster_manager.global_cluster_cache import GlobalClusterCache, DEFAULT_DEVIATION_RETAIN_VALUE
 
 cache_blue_print = Blueprint('cache', __name__)
 
@@ -41,7 +40,7 @@ def get_all_overutil():
             cluster_param = None
 
         response = {}
-        if cluster_param is not None and cluster_param not in global_cache.GLOBAL_CLUSTER_CACHE:
+        if cluster_param is not None and cluster_param not in global_cache.global_cluster_cache:
             return jsonify({"message": f"Cluster {cluster_param} not"
                             " found in the cache"}), HTTPStatus.NOT_FOUND
         deviating_items = global_cache.get_deviating_items(
@@ -84,16 +83,14 @@ def get_all_overutil():
             response["users"] = user_dict
 
         cluster_health = {}
-        for c_name in global_cache.GLOBAL_CLUSTER_CACHE:
-            cluster_health[c_name] = global_cache.GLOBAL_CLUSTER_CACHE[c_name].get_health_status()
+        for c_name in global_cache.global_cluster_cache:
+            cluster_health[c_name] = global_cache.global_cluster_cache[c_name].get_health_status()
         return render_template("deviations.html", deviations=response, chealth=cluster_health)
-
-
 
 @cache_blue_print.route("/cache/refresh", methods=[HTTPMethod.PUT])
 def force_cache_refresh():
     global_cache = GlobalClusterCache()
-    GLOBAL_MGR_LOGGER.info("Forcing cache refresh.")
+    global_cache.logger.info("Forcing cache refresh.")
     global_cache.rebuild_cache()
     return jsonify({"message": "Cache refresh successful."}), HTTPStatus.OK
 

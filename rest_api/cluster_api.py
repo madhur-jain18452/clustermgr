@@ -9,7 +9,7 @@ Author:
 
 import json
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template
 from http import HTTPStatus, HTTPMethod
 
 from custom_exceptions.exceptions import ActionAlreadyPerformedError
@@ -22,13 +22,17 @@ cluster_blue_print = Blueprint('cluster', __name__)
 @cluster_blue_print.route("/clusters", methods=[HTTPMethod.GET])
 def list_clusters():
     global_cache = GlobalClusterCache()
-    return jsonify(global_cache.get_clusters()), HTTPStatus.OK
+    clusters = global_cache.get_clusters()
+    if 'Accept' in request.headers and request.headers['Accept'] == 'application/json':
+        return jsonify(clusters), HTTPStatus.OK
+    else:    
+        return render_template('clusters.html', clusters=clusters)
 
 @cluster_blue_print.route("/clusters/<cluster_name>", methods=[HTTPMethod.GET])
 def get_cluster_info(cluster_name):
     global_cache = GlobalClusterCache()
-    if cluster_name in global_cache.GLOBAL_CLUSTER_CACHE:
-        return jsonify(global_cache.GLOBAL_CLUSTER_CACHE[cluster_name].summary(summary_verbosity=2)), HTTPStatus.OK
+    if cluster_name in global_cache.global_cluster_cache:
+        return jsonify(global_cache.global_cluster_cache[cluster_name].summary(summary_verbosity=2)), HTTPStatus.OK
     return jsonify({'message': f'Cluster with name "{cluster_name}" not found in the cache'}), HTTPStatus.NOT_FOUND
 
 @cluster_blue_print.route("/clusters", methods=[HTTPMethod.POST])
@@ -80,7 +84,7 @@ def check_utilization(cluster_name):
     # TODO Handle the case where the user quota is being updated; instead of new creation
     arguments = request.args.to_dict()
     global_cache = GlobalClusterCache()
-    if cluster_name not in global_cache.GLOBAL_CLUSTER_CACHE:
+    if cluster_name not in global_cache.global_cluster_cache:
         return jsonify({"error": f"Cluster with name {cluster_name} not found!"}), HTTPStatus.NOT_FOUND
-    u_hs = global_cache.GLOBAL_CLUSTER_CACHE[cluster_name].get_updated_health_status(arguments.get('cores', 0), arguments.get('memory', 0))
+    u_hs = global_cache.global_cluster_cache[cluster_name].get_updated_health_status(arguments.get('cores', 0), arguments.get('memory', 0))
     return jsonify(u_hs), HTTPStatus.OK

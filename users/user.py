@@ -147,7 +147,8 @@ class User:
         return deepcopy(json_obj)
 
     def _back_populate_vm_resources(self, vm_uuid, parent_cluster_name,
-                                    mem_diff, cores_diff, power_state=PowerState.OFF):
+                                    mem_diff, cores_diff, new_name,
+                                    power_state=PowerState.OFF):
         with self.resources_lock:
             # Any new VM is added before calling this function
             # If it is a new cluster
@@ -172,6 +173,10 @@ class User:
             # Update global resource usage
             self.total_resource_tracker[RES.MEMORY] += mem_diff
             self.total_resource_tracker[RES.CORES] += cores_diff
+            # Check if the name has changed
+            if self.vm_resource_tracker[vm_uuid]['name'] != new_name:
+                self.vm_resource_tracker[vm_uuid]['name'] = new_name
+                USER_LOGGER_.debug(f"VM {vm_uuid} name changed to {new_name}")
             USER_LOGGER_.debug(f"Cluster - {self.email} - Cluster "
                                f"{parent_cluster_name} resources: "
                                f"{self.cluster_resource_tracker[parent_cluster_name]}")
@@ -204,7 +209,7 @@ class User:
                         if new_power_state == PowerState.ON:
                             # If the resources consumption changed
                             if mem_diff != 0 or cores_diff != 0:
-                                self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
+                                self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, name, new_power_state)
                                 _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
                                             old_power_state=old_power_state)
                             # else nothing
@@ -219,7 +224,7 @@ class User:
                             self.vm_resource_tracker[uuid]['power_state'] = new_power_state
                             self.powered_off_vms.add(uuid)
                             # Update the consumption
-                            self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
+                            self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, name, new_power_state)
                             # Remove from running VM cache
                             self.powered_on_vms.remove(uuid)
                             _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
@@ -233,7 +238,7 @@ class User:
                             # Add to the running VM cache
                             self.powered_on_vms.add(uuid)
                             # Release resources
-                            self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, new_power_state)
+                            self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, name, new_power_state)
                             # Remove from OFF Cache
                             self.powered_off_vms.remove(uuid)
                             _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
@@ -256,11 +261,11 @@ class User:
                     if new_power_state == PowerState.ON:
                         # The resources will be updated in _update_all_resources
                         self.powered_on_vms.add(uuid)
-                        self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff)
+                        self._back_populate_vm_resources(uuid, parent_cluster, mem_diff, cores_diff, name)
                     else:
                         self.powered_off_vms.add(uuid)
                         # Check if the Parent cluster is already being tracked. Since the new VM is powered OFF, the resources will not be updated
-                        self._back_populate_vm_resources(uuid, parent_cluster, 0, 0)
+                        self._back_populate_vm_resources(uuid, parent_cluster, 0, 0, name)
                     _log_vm_update(self.email, vm_config, mem_diff, cores_diff,
                                 old_power_state=PowerState.UNKNOWN)
 
@@ -400,7 +405,7 @@ class User:
             cores_diff = (-1) * old_resources[RES.CORES]
             parent_cluster_name = old_resources['parent_cluster']
             self._back_populate_vm_resources(deleted_vm_uuid, parent_cluster_name,
-                                             mem_diff, cores_diff)
+                                             mem_diff, cores_diff, old_resources['name'])
             self.powered_on_vms.remove(deleted_vm_uuid)
         elif deleted_vm_uuid in self.powered_off_vms:
             self.powered_off_vms.remove(deleted_vm_uuid)
