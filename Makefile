@@ -35,7 +35,7 @@ init_eval_local:
 	--refresh-deviations $(REFRESH_DEVIATION) \
 	--retain-deviations $(RETAIN_DEVIATIONS) \
 	--deviations-checkback $(DEVIATION_CHECKBACK_INTERVAL) \
-	--eval
+	--eval > flask.log 2>&1 &
 
 init_prod:
 	@echo "Initializing $(APP_NAME) on $(REMOTE_HOST) for user $(REMOTE_USER)"

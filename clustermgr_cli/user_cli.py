@@ -46,7 +46,7 @@ def list(prefix, quota):
     """Lists all the Users in the system"""
     # TODO Add option for showing quota
     res = requests.get(LOCAL_ENDPOINT + USER_EP, headers=CLI_HEADERS)
-    columns = ['Name', 'Email']
+    columns = ['Sr. No.', 'Name', 'Email']
     if prefix:
         columns.append("Prefixes")
     if quota:
@@ -54,9 +54,9 @@ def list(prefix, quota):
     pt = prettytable.PrettyTable(columns)
     if quota:
         pt.align["Per Cluster Enforced Quota"] = 'l'
-    
+    sr_no = 1
     for each_data in res.json():
-        data = [each_data['name'], each_data['email']]
+        data = [sr_no, each_data['name'], each_data['email']]
         if prefix:
             data.append(each_data['prefix'])
         if quota:
@@ -72,6 +72,7 @@ def list(prefix, quota):
             data.extend([each_data['global_resources_quota']['cores'],
                          convert_mb_to_gb(each_data['global_resources_quota']['memory']),
                          cluster_quota_str])
+        sr_no += 1
         pt.add_row(data)
     click.echo(pt)
 
