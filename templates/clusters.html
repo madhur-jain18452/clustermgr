@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=0.8">
+    <title>Cluster List</title>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <!-- <link rel="stylesheet" href="templates/static/css/style.css"> -->
+    <style>
+        .collapsible {
+            background-color: #eee;
+            color: #444;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 15px;
+        }
+
+        .active, .collapsible:hover {
+            background-color: #ccc;
+        }
+
+        .content {
+            padding: 0 18px;
+            display: none;
+            overflow: hidden;
+            background-color: #f1f1f1;
+        }
+        .collapsible:after {
+            content: '\02795'; /* Unicode character for "plus" sign (+) */
+            font-size: 13px;
+            color: white;
+            float: right;
+            margin-left: 5px;
+        }
+
+        .active:after {
+            content: "\2796"; /* Unicode character for "minus" sign (-) */
+        }
+        .top-sticky {
+            position: fixed;
+            height: 5%;
+            top: 0;
+            width: 100%
+        }
+        .sticky2 {
+            /* position: top-sticky + he; */
+            top: 50px; /* height of sticky1 + padding */
+            background-color: #555;
+            color: white;
+            padding: 10px;
+            z-index: 0; /* Ensure it stays below sticky1 */
+        }
+
+    </style>
+</head>
+<body>
+    <div class="w3-bar w3-black top-sticky">
+        <a href="/cache/deviations" class="w3-bar-item w3-button">Deviations</a>
+        <a href="/users" class="w3-bar-item w3-button">Users</a>
+        <a href="/clusters" class="w3-bar-item w3-button">Clusters</a>
+        <!-- <a href="#" class="w3-bar-item w3-button">Link 3</a> -->
+    </div>
+    <h2 style="padding-left: 2%; margin-top: 5%;">List of Clusters being tracked</h2>
+    <div>
+        <table class="w3-table w3-bordered">
+            <thead>
+                <tr style="text-align: center;">
+                    <th>Sr. No.</th>
+                    <th>Cluster Name</th>
+                    <th>IP Address</th>
+                    <!-- <th>Action</th> -->
+                </tr>
+            </thead>
+            <tbody>
+                {% for cluster in clusters %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ cluster['name'] }}</td>
+                    <td><a href="https://{{ cluster['ip'] }}:9440/console/#login" target="_blank">{{ cluster['ip'] }}</a></td>
+                    <!-- <td>
+                        
+                    </td> -->
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
