@@ -8,6 +8,7 @@ Author:
 """
 
 import json
+import os
 
 from flask import Blueprint, jsonify, request
 from http import HTTPStatus, HTTPMethod
@@ -41,9 +42,7 @@ def update_dnd_override():
     """Updates the Do Not Disturb override for the cluster when performing
         garbage collection
     """
-    import os
     args = json.loads(request.json)
-    print(args)
     override_str = args['new_override_str']
     if override_str.lower() not in ["true", "yes", "no", "false"]:
         return jsonify({'message': f'Invalid value for override "{override_str}"'}), \
@@ -186,3 +185,24 @@ def dump_cluster_config():
     else:
         return (jsonify({'message': f'Cluster config dump failed'}),
                 HTTPStatus.INTERNAL_SERVER_ERROR)
+
+@tool_blue_print.route("/tool/eval_mode", methods=[HTTPMethod.PUT])
+def update_eval_mode():
+    args = json.loads(request.json)
+    new_state = args['new_state']
+    if new_state.lower() not in ["on", "off"]:
+        return jsonify({'message': f'Invalid value for state "{new_state}"'}), \
+            HTTPStatus.BAD_REQUEST
+    from cluster_manager.cluster_monitor import cm_logger
+    try:
+        if new_state.lower() == 'on':
+            os.environ.update({'eval_mode': 'True'})
+            cm_logger.info("Eval mode set to 'ON' successfully")
+        else:
+            os.environ.update({'eval_mode': 'False'})
+            cm_logger.info("Eval mode set to 'OFF' successfully")
+    except Exception as ex:
+        cm_logger.exception(f"Eval mode update to {new_state} failed. Exception: {ex}")
+        return jsonify({'message': f'Eval mode update failed. Error: {ex}'}), \
+            HTTPStatus.INTERNAL_SERVER_ERROR
+    return jsonify({'message': f'Eval mode update successful. Set to "{new_state.upper()}"'}), HTTPStatus.OK

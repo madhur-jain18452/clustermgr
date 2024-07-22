@@ -10,7 +10,7 @@ Author:
 import click
 import json
 import requests
-
+from http import HTTPStatus
 from prettytable import PrettyTable
 
 from .constants import TOOL_EP, LOCAL_ENDPOINT, CLI_HEADERS
@@ -120,4 +120,23 @@ def dump_cluster_config(file):
         body = {'dump_file': file}
     res = requests.post(LOCAL_ENDPOINT + TOOL_EP + "/dump_cluster_config",
                         json=json.dumps(body), headers=CLI_HEADERS)
+    click.echo(res.json()['message'])
+
+@tool.command(name="eval")
+@click.option("--off", is_flag=True, help="Turn the eval mode off")
+@click.option("--on", is_flag=True, help="Turn the eval mode on")
+def dump_cluster_config(off, on):
+    """Dump the cluster config to a file
+    """
+    if off and on:
+        click.secho("Cannot provide both the options", fg='red')
+        return
+    if not off and not on:
+        click.secho("Provide either of 'on' or 'off'", fg='red')
+        return
+    body = {'new_state': 'off' if off else 'on' if on else 'on'}
+    res = requests.put(LOCAL_ENDPOINT + TOOL_EP + "/eval_mode",
+                        json=json.dumps(body), headers=CLI_HEADERS)
+    if res.status_code != HTTPStatus.OK:
+        click.secho(res.json()['message'], fg='red')
     click.echo(res.json()['message'])

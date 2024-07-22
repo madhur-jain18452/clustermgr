@@ -142,24 +142,29 @@ class Cluster:
             self.cluster_info_populated = False
             self.logger.exception(f"Fetching hosts information failed for the cluster {self.name} : {ex}")
             return
-
-        for entity in resp_json['entities']:
-            temp_mem = entity.get('memory_capacity_in_bytes', 0)
-            if temp_mem is not None:
-                mem += temp_mem
-            else:
-                self.logger.error(f"Memory capacity not found for host {entity['name']} UUID: {entity['uuid']} on cluster {self.name}")
-            temp_cores = entity.get('num_cpu_cores', 0)
-            temp_threads = entity.get('num_cpu_threads', 0)
-            if temp_cores is not None and temp_threads is not None:
-                cores += temp_threads * temp_cores
-            else:
-                self.logger.error(f"CPU not found for host {entity['name']} UUID: {entity['uuid']} on cluster {self.name}")
-            pass
-        # Stored in Bytes
-        self.abs_available_memory = bytes_to_mb(mem)
-        self.abs_available_cores = cores
-        self.logger.info(f"Total {self.abs_available_cores} cores and {self.abs_available_memory} Memory available on the cluster {self.name}")
+        # self.logger.info({json.dumps(resp_json)})
+        if 'entities' not in resp_json:
+            self.logger.error(f"Hosts not found for cluster {self.name}")
+            self.cluster_info_populated = False
+            return
+        else:
+            for entity in resp_json['entities']:
+                temp_mem = entity.get('memory_capacity_in_bytes', 0)
+                if temp_mem is not None:
+                    mem += temp_mem
+                else:
+                    self.logger.error(f"Memory capacity not found for host {entity['name']} UUID: {entity['uuid']} on cluster {self.name}")
+                temp_cores = entity.get('num_cpu_cores', 0)
+                temp_threads = entity.get('num_cpu_threads', 0)
+                if temp_cores is not None and temp_threads is not None:
+                    cores += temp_threads * temp_cores
+                else:
+                    self.logger.error(f"CPU not found for host {entity['name']} UUID: {entity['uuid']} on cluster {self.name}")
+                pass
+            # Stored in Bytes
+            self.abs_available_memory = bytes_to_mb(mem)
+            self.abs_available_cores = cores
+            self.logger.info(f"Total {self.abs_available_cores} cores and {self.abs_available_memory} Memory available on the cluster {self.name}")
 
         # If everything is successful, mark the information is populated
         self.cluster_info_populated = True

@@ -100,6 +100,7 @@ def force_cache_refresh():
 def update_offesne_retain_count():
     """Update the count of overutil to retain in the cache."""
     arguments = json.loads(request.json)
+    gc = GlobalClusterCache()
     if 'retain_overutil' in arguments:
         try:
             new_retain_val = int(arguments['retain_overutil'])
@@ -107,7 +108,7 @@ def update_offesne_retain_count():
                   f" {os.environ.get('overutil_cache_retain', DEFAULT_DEVIATION_RETAIN_VALUE)} "\
                   f"to {new_retain_val}"
             os.environ['overutil_cache_retain'] = str(new_retain_val)
-            GLOBAL_MGR_LOGGER.info(msg)
+            gc.logger.info(msg)
             return jsonify({'message': msg}), HTTPStatus.OK
         except ValueError:
             err_str = "Please provide integer value for count of timed "\
