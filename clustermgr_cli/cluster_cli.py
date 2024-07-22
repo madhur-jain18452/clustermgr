@@ -346,12 +346,12 @@ def remove_vm_nic(cluster_name, remove, uuid, name):
         click.echo(res.json())
 
 
-@cluster.command(name='check-util')
+@cluster.command(name='will-oversubscribe')
 @click.argument('cluster_name')
 @click.option('--cores', '-c', type=int, help="Proposed the CORES allocation")
-@click.option('--memory', '-m', type=float, help="Proposed the Mem allocation")
+@click.option('--memory', '-m', type=float, help="Proposed the Mem allocation. Memory in GB")
 def check_over_utilization(cluster_name, cores, memory):
-    """Verify the utilization of the cluster AFTER allocating X resources
+    """Check if the cluster will be over-subscribed after allocating the resources
     """
     init()
     if not cores and not memory:
