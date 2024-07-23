@@ -124,7 +124,8 @@ def add(name, email, prefixes, total, cluster, flush, file, yes):
 @click.option('--add-prefixes', type=str, default="", help="Comma-separated list of prefixes to be added")
 @click.option('--total', type=(int, float), multiple=False, help="Total quota: cores=<number_of_cores> memory=<memory_in_gb>.\n\tNOTE: This will over-write current quota values.\n\tTo skip update for a particular type, provide -1.\n\tE.g. --total -1 5 to update only total memory quota to 5GB with same number of cores")
 @click.option('--cluster', type=(str, int, float), multiple=True, help="Per-cluster quota: cores=<number_of_cores> memory=<memory_in_gb>\n\tNOTE: This will over-write current quota values. Will add the cluster quota if it does not exist.\n\tTo skip update for a particular type, provide -1.\n\tE.g. --cluster <cluster_name> -1 5 to update only total memory quota to 5GB with same number of cores")
-def update(email, name, remove_prefixes, add_prefixes, total, cluster):
+@click.option('--yes', is_flag=True, help="Do not ask for confirmation for over-subscription")
+def update(email, name, remove_prefixes, add_prefixes, total, cluster, yes):
     """Update any information of a particular user
     """
     if not name and not remove_prefixes and not add_prefixes and not total and not cluster:
@@ -151,11 +152,15 @@ def update(email, name, remove_prefixes, add_prefixes, total, cluster):
             user_info['quota']['global'].append(total_dict)
         if cluster:
             for cname, core, mem in cluster:
+                # Check if there will be over-subscription. If --yes passed, skip
                 cluster_dict = {}
                 if core != -1:
                     cluster_dict['cores'] = core
                 if mem != -1:
                     cluster_dict['memory'] = mem * BINARY_CONVERSION_FACTOR
+                if not yes:
+                    if not _check_cluster_overutil_confirm_with_owner(cname, core, mem):
+                        return
                 user_info['quota'][cname] = cluster_dict
     res = requests.patch(user_url, json=json.dumps(user_info), headers=CLI_HEADERS)
     if res.status_code in [HTTPStatus.ACCEPTED, HTTPStatus.OK]:
