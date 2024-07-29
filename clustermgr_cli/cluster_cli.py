@@ -317,8 +317,8 @@ def power_off_vm(cluster_name, off, uuid, name):
 @cluster.command(name='vm-nic')
 @click.argument('cluster_name')
 @click.option('--remove', '-r', is_flag=True, default=True, help="Power OFF a VM")
-@click.option('--uuid', help="UUID of the VM to change Power State")
-@click.option('--name', help="Name of the VM to change Power State")
+@click.option('--uuid', help="UUID of the VM to remove NIC")
+@click.option('--name', help="Name of the VM to remove NIC")
 def remove_vm_nic(cluster_name, remove, uuid, name):
     """Sends request to [REMOVE] a NIC from a VM running on this cluster (If the VM is powered ON, it will be a hot-remove)
     """
