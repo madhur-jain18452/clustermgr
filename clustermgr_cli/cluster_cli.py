@@ -287,7 +287,7 @@ def list_vms(cluster_name, resources, no_owner, sorted_mem, sorted_core,
 @click.option('--uuid', help="UUID of the VM to change Power State")
 @click.option('--name', help="Name of the VM to change Power State")
 def power_off_vm(cluster_name, off, uuid, name):
-    """Sends request to change the power state of a VM running on this cluster
+    """Sends request to change the power state [to power OFF] of a VM running on this cluster
     """
     if not uuid and not name:
         click.echo("At least one of the UUID or VM Name should be mentioned")
@@ -320,7 +320,7 @@ def power_off_vm(cluster_name, off, uuid, name):
 @click.option('--uuid', help="UUID of the VM to change Power State")
 @click.option('--name', help="Name of the VM to change Power State")
 def remove_vm_nic(cluster_name, remove, uuid, name):
-    """Sends request to change the power state of a VM running on this cluster
+    """Sends request to [REMOVE] a NIC from a VM running on this cluster (If the VM is powered ON, it will be a hot-remove)
     """
     if not uuid and not name:
         click.echo("At least one of the UUID or VM Name should be mentioned")
@@ -351,7 +351,7 @@ def remove_vm_nic(cluster_name, remove, uuid, name):
 @click.option('--cores', '-c', type=int, help="Proposed the CORES allocation")
 @click.option('--memory', '-m', type=float, help="Proposed the Mem allocation. Memory in GB")
 def check_over_utilization(cluster_name, cores, memory):
-    """Check if the cluster will be over-subscribed after allocating the resources
+    """Check if the cluster will be over-subscribed AFTER allocating the resources
     """
     init()
     if not cores and not memory:

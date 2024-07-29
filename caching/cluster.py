@@ -1177,7 +1177,9 @@ class Cluster:
             }
 
     def get_updated_health_status(self, new_cores, new_mem):
-        """Get the updated health status of the cluster. Returns percentage of memory and cores still available if we provision a particular VM.
+        """Get the updated health status of the cluster (based on the current actively utilized resources).
+            Returns percentage of memory and cores still available if we provision a particular VM.
+
             Args:
                 new_vm_cores (int): Cores used by the new VM
                 new_vm_mem (int): Memory used by the new VM
@@ -1187,7 +1189,7 @@ class Cluster:
         from caching.server_constants import HealthStatus
         if self.cluster_info_populated:
             self.logger.info(f"There are {self.abs_utilized_resources} resources being used; and {self.abs_available_cores} cores and {self.abs_available_memory} available")
-            self.logger.info(f"CHecking for new resources: {new_cores} cores and {new_mem} memory")
+            self.logger.info(f"Checking for new resources: {new_cores} cores and {new_mem} memory")
             info = {
                 "memory_perc": (self.abs_utilized_resources[ClusterKeys.MEMORY] /
                                 self.abs_available_memory) * 100,

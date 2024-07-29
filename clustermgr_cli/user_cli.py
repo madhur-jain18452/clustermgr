@@ -35,7 +35,7 @@ def _check_cluster_overutil_confirm_with_owner(cluster, new_core, new_mem):
 
 @click.group()
 def user():
-    """CLI to access information of a particular User
+    """CLI to view/update information of a particular User
     """
     pass
 
@@ -171,7 +171,7 @@ def update(email, name, remove_prefixes, add_prefixes, total, cluster, yes):
 @click.option("--resources", "-r", is_flag=True, help="Show the resources used for each VM")
 @click.option("--cluster", "-c", help="Filter the list as per cluster")
 def list_vms(email, resources, cluster):
-    """List VMs for a particular user
+    """List VMs for a particular user. Can filter by the cluster and show the resources consumed.
     """
     from caching.cluster import PowerState
     from tools.helper import convert_mb_to_gb

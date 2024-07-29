@@ -42,7 +42,7 @@ def list_schedules():
 @click.option('--yes', is_flag=True, help="Allow overriding the DND for powering off the VMs")
 @click.option('--no', is_flag=True, help="Do not override the DND for powering off the VMs")
 def update_override_dnd(yes, no):
-    """Update the Override flag to consider DND VMs for powering off
+    """Update the Override flag to consider DND VMs (also) for powering off
     """
     if yes and no:
         click.secho("Cannot provide both the options", fg='red')
@@ -123,10 +123,10 @@ def dump_cluster_config(file):
     click.echo(res.json()['message'])
 
 @tool.command(name="eval")
-@click.option("--off", is_flag=True, help="Turn the eval mode off")
-@click.option("--on", is_flag=True, help="Turn the eval mode on")
-def dump_cluster_config(off, on):
-    """Dump the cluster config to a file
+@click.option("--off", is_flag=True, help="Turn the eval mode off. Actions WILL be performed.")
+@click.option("--on", is_flag=True, help="Turn the eval mode on. Actions will NOT be performed.")
+def update_eval_mode_actions(off, on):
+    """Change the eval mode of the tool. Set OFF to enable the actions or ON to disable them.
     """
     if off and on:
         click.secho("Cannot provide both the options", fg='red')
